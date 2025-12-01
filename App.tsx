@@ -6,6 +6,7 @@ import LiquidCursor from './components/LiquidCursor';
 import { DreamMood, DreamFragment } from './types';
 import { WorldEntity, EntityType, WHISPER_DATA } from './worldTypes';
 import { consultTheDream, manifestVision } from './services/geminiService';
+import { generateRelevantEntity } from './relevanceAlgorithm';
 
 const App: React.FC = () => {
   const [currentMood, setCurrentMood] = useState<DreamMood>(DreamMood.NEUTRAL);
@@ -28,70 +29,12 @@ const App: React.FC = () => {
     const initialEntities: WorldEntity[] = [];
     const startZ = cameraZRef.current;
     // Generate deeper range for smoothness
-    for (let z = startZ - 2000; z < startZ + 4000; z += Math.random() * 400 + 200) {
-       initialEntities.push(generateRandomEntity(z));
+    for (let z = startZ - 2000; z < startZ + 4000; z += Math.random() * 300 + 200) {
+       initialEntities.push(generateRelevantEntity(z, 0));
     }
     setEntities(initialEntities);
     lastGenZ.current = startZ;
   }, []);
-
-  const generateRandomEntity = (z: number): WorldEntity => {
-    const r = Math.random();
-    let type = EntityType.FLICKER;
-    let scale = 1;
-    let content = undefined;
-    let hue = 0;
-
-    // Use modulo on Z to create "zones" or biomes so it's not totally random soup
-    // Every 5000 units, the theme changes slightly
-    const zone = Math.floor(z / 5000) % 3;
-
-    if (zone === 0) {
-      // Zone 0: The Whisper Void (Mostly Text + Flickers)
-      if (r > 0.7) {
-        type = EntityType.WHISPER;
-        content = WHISPER_DATA[Math.floor(Math.random() * WHISPER_DATA.length)];
-        scale = 1 + Math.random();
-      } else if (r > 0.95) {
-        type = EntityType.WIDGET_INPUT;
-      }
-    } else if (zone === 1) {
-      // Zone 1: The Nebula (Galaxies + Portals)
-      if (r > 0.8) {
-        type = EntityType.GALAXY;
-        hue = Math.random() * 360;
-        scale = 3 + Math.random() * 5;
-      } else if (r > 0.9) {
-        type = EntityType.PORTAL;
-        scale = 2 + Math.random();
-      }
-    } else {
-      // Zone 2: The Abstract (Blobs + Flickers)
-      if (r > 0.85) {
-        type = EntityType.BLOB;
-        scale = 1.5 + Math.random() * 2;
-      } else {
-        type = EntityType.FLICKER;
-      }
-    }
-
-    // Occasional rare crossover event
-    if (Math.random() > 0.98) {
-       type = EntityType.PORTAL;
-       scale = 5; // Massive portal
-    }
-
-    return {
-      id: Math.random().toString(36).substr(2, 9),
-      type,
-      x: (Math.random() - 0.5) * 150 + 50, 
-      y: (Math.random() - 0.5) * 150 + 50,
-      z: z,
-      scale,
-      content,
-      hue
-    };
-  };
 
   // Scroll / Zoom Loop (RequestAnimationFrame)
   useEffect(() => {
@@ -100,13 +43,13 @@ const App: React.FC = () => {
     const loop = () => {
       // Smooth Lerp Camera Z
       const diff = targetCameraZRef.current - cameraZRef.current;
+      const velocity = diff * 0.05;
       
-      // Apply momentum - 5% smooth factor (very fluid)
-      cameraZRef.current += diff * 0.05; 
+      // Apply momentum
+      cameraZRef.current += velocity; 
 
       // Update DOM directly for zero-latency scroll
       if (worldContainerRef.current) {
-        // We move the world container opposite to camera
         worldContainerRef.current.style.transform = `translateZ(${-cameraZRef.current}px)`;
       }
 
@@ -119,24 +62,22 @@ const App: React.FC = () => {
       if (Math.abs(currentZ - lastGenZ.current) > 500) {
          setEntities(prev => {
             const next = [...prev];
-            // Filter far behind
             const filtered = next.filter(e => e.z > rearHorizon);
             
-            // Add new ahead
             let maxZ = filtered.length > 0 ? Math.max(...filtered.map(e => e.z)) : currentZ;
             let added = false;
             
             while (maxZ < horizon) {
               maxZ += Math.random() * 400 + 200;
-              filtered.push(generateRandomEntity(maxZ));
+              // Pass velocity to generation algorithm for context awareness
+              filtered.push(generateRelevantEntity(maxZ, velocity));
               added = true;
             }
             
-            // Add new behind (if reversing)
             let minZ = filtered.length > 0 ? Math.min(...filtered.map(e => e.z)) : currentZ;
             while (minZ > rearHorizon) {
                minZ -= Math.random() * 400 + 200;
-               filtered.push(generateRandomEntity(minZ));
+               filtered.push(generateRelevantEntity(minZ, velocity));
                added = true;
             }
 

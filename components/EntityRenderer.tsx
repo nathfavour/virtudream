@@ -3,20 +3,31 @@ import { EntityType, WorldEntity } from '../worldTypes';
 
 interface EntityRendererProps {
   entity: WorldEntity;
-  cameraZ: number; // We might not need this prop if we rely on CSS 3D, but helpful for culling logic if needed
+  cameraZ: number; 
 }
 
-const EntityRenderer: React.FC<EntityRendererProps> = ({ entity }) => {
+const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
+  // Calculate relative distance for LOD (Level of Detail)
+  const dist = entity.z - cameraZ;
   
+  // LOD Thresholds
+  const isClose = dist < 800 && dist > -200;
+  
+  // Opacity fade as we pass through
+  let opacity = 1;
+  if (dist < 100 && dist > -500) {
+     opacity = Math.max(0, (dist + 500) / 600); // Fade out as we pass
+  }
+
   // Clean translation style
   const style: React.CSSProperties = {
     transform: `translate3d(${entity.x - 50}vw, ${entity.y - 50}vh, ${entity.z}px) scale(${entity.scale})`,
     position: 'absolute',
     left: '50%',
     top: '50%',
-    willChange: 'transform', // optimizing hint
-    backfaceVisibility: 'hidden', // Text fix?
-    WebkitFontSmoothing: 'antialiased',
+    willChange: 'transform', 
+    backfaceVisibility: 'hidden',
+    opacity
   };
 
   switch (entity.type) {
@@ -30,6 +41,27 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity }) => {
       );
       
     case EntityType.GALAXY:
+      // LOD: Distant = Blur, Close = Blazing Sun
+      if (isClose) {
+        return (
+          <div style={style} className="pointer-events-none">
+             {/* BLAZING SUN LOD */}
+             <div className="w-[1200px] h-[1200px] rounded-full relative animate-spin-slow">
+                {/* Core */}
+                <div className="absolute inset-[10%] bg-white rounded-full shadow-[0_0_100px_white] blur-md"></div>
+                {/* Corona */}
+                <div className="absolute inset-0 rounded-full blur-xl opacity-80" 
+                     style={{ background: `radial-gradient(circle, hsla(${entity.hue}, 100%, 70%, 1) 0%, transparent 70%)` }}>
+                </div>
+                {/* Solar Flares / Spots (Animated CSS) */}
+                <div className="absolute inset-0 rounded-full overflow-hidden mix-blend-overlay">
+                   <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-50 animate-pulse-fast"></div>
+                </div>
+             </div>
+          </div>
+        );
+      }
+      // Distant Blob
       return (
         <div style={style} className="pointer-events-none">
           <div 
@@ -58,10 +90,12 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity }) => {
     case EntityType.PORTAL:
       return (
         <div style={style} className="pointer-events-none group">
-           <div className="w-64 h-64 rounded-full border-2 border-white/50 shadow-[0_0_50px_rgba(255,255,255,0.5)] overflow-hidden animate-pulse-slow">
-              <div className="absolute inset-0 bg-black opacity-80"></div>
-              {/* Internal swirl */}
-              <div className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0deg,#ff00ff_180deg,transparent_360deg)] animate-spin-fast opacity-50 mix-blend-screen"></div>
+           <div className="w-96 h-96 rounded-full border-4 border-white/80 shadow-[0_0_100px_rgba(255,255,255,0.8)] overflow-hidden animate-pulse-slow relative">
+              <div className="absolute inset-0 bg-black opacity-90"></div>
+              {/* Internal swirl - High Detail */}
+              <div className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0deg,#ff00ff_180deg,transparent_360deg)] animate-spin-fast opacity-80 mix-blend-screen"></div>
+              {/* Inner Event Horizon */}
+              <div className="absolute inset-[10%] bg-black rounded-full border border-purple-500/50"></div>
            </div>
         </div>
       );
@@ -96,12 +130,14 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity }) => {
   }
 };
 
-// Optimization: memoize based on entity properties changes only
 export default React.memo(EntityRenderer, (prev, next) => {
-  return prev.entity.id === next.entity.id && 
-         prev.entity.z === next.entity.z; // Re-render if Z changes? Actually CSS handles Z via parent container usually? 
-         // Wait, the parent loop renders this with a style based on entity.z.
-         // If entity.z is constant (world position), we don't need to re-render.
-         // The CAMERA moves, not the entity (in world space).
-         // So yes, aggressive memoization is key.
+  // CRITICAL: We MUST re-render if cameraZ changes significantly
+  const distPrev = prev.entity.z - prev.cameraZ;
+  const distNext = next.entity.z - next.cameraZ;
+  
+  const wasClose = distPrev < 800;
+  const isClose = distNext < 800;
+  
+  if (wasClose !== isClose) return false;
+  return prev.entity.id === next.entity.id && prev.cameraZ === next.cameraZ;
 });
