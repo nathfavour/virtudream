@@ -1,36 +1,125 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LivingBackground from './components/LivingBackground';
-import DreamLayer from './components/DreamLayer';
-import VoidLayer from './components/VoidLayer';
 import GlobalInputHandler from './components/GlobalInputHandler';
+import EntityRenderer from './components/EntityRenderer';
 import { DreamMood, DreamFragment } from './types';
+import { WorldEntity, EntityType, WHISPER_DATA } from './worldTypes';
 import { consultTheDream, manifestVision } from './services/geminiService';
 
 const App: React.FC = () => {
   const [currentMood, setCurrentMood] = useState<DreamMood>(DreamMood.NEUTRAL);
-  const [fragments, setFragments] = useState<DreamFragment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chaosLevel, setChaosLevel] = useState(0); 
 
-  // Infinite Zoom State
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const ZOOM_SPEED = 0.001; // Sensitivity
-
-  // Refs for tracking scroll delta to convert to zoom
-  // We use a dummy scroll height to capture scroll events, but we don't actually scroll.
-  // We just use the deltaY.
+  // --- INFINITE WORLD STATE ---
+  // Start at a random "deep" coordinate to ensure no two loads are identical
+  const [cameraZ, setCameraZ] = useState(() => Math.random() * 5000 + 1000);
+  const [entities, setEntities] = useState<WorldEntity[]>([]);
   
+  // Generation boundaries
+  const RENDER_DISTANCE = 3000;
+  const GENERATION_CHUNK = 1000;
+  const lastGenZ = useRef(0);
+
+  // Initial Generation on Mount
+  useEffect(() => {
+    // Generate initial world around the random start point
+    const initialEntities: WorldEntity[] = [];
+    // Generate range: cameraZ - 1000 to cameraZ + 3000
+    for (let z = cameraZ - 1000; z < cameraZ + 3000; z += Math.random() * 300 + 200) {
+       initialEntities.push(generateRandomEntity(z));
+    }
+    setEntities(initialEntities);
+    lastGenZ.current = cameraZ;
+  }, []);
+
+  const generateRandomEntity = (z: number): WorldEntity => {
+    const r = Math.random();
+    let type = EntityType.FLICKER;
+    let scale = 1;
+    let content = undefined;
+    let hue = 0;
+
+    if (r > 0.8) {
+      type = EntityType.WHISPER;
+      content = WHISPER_DATA[Math.floor(Math.random() * WHISPER_DATA.length)];
+      scale = 1 + Math.random();
+    } else if (r > 0.6) {
+      type = EntityType.GALAXY;
+      hue = Math.random() * 360;
+      scale = 2 + Math.random() * 3;
+    } else if (r > 0.95) {
+      type = EntityType.WIDGET_INPUT;
+    }
+
+    // Spread X/Y widely (-100 to 200%) to create a tunnel feel
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      type,
+      x: (Math.random() - 0.5) * 150 + 50, // Center bias? No, random spread
+      y: (Math.random() - 0.5) * 150 + 50,
+      z: z,
+      scale,
+      content,
+      hue
+    };
+  };
+
+  // Procedural Generation Loop
+  useEffect(() => {
+    // Check if we need to generate more in front or behind
+    // For simplicity, let's just keep a buffer ahead of the camera
+    // If camera moves past lastGenZ + threshold, generate more
+    
+    // NOTE: This assumes mostly forward travel. For bidirectional, we'd need min/max checks.
+    // Let's implement simple "horizon" check.
+    
+    const horizon = cameraZ + RENDER_DISTANCE;
+    
+    setEntities(prev => {
+      const next = [...prev];
+      let changed = false;
+      
+      // 1. Remove entities too far behind (cameraZ - 1500)
+      const keepThreshold = cameraZ - 1500;
+      const filtered = next.filter(e => e.z > keepThreshold);
+      if (filtered.length !== next.length) changed = true;
+      
+      // 2. Add entities if horizon is empty
+      // Find max Z
+      let maxZ = filtered.length > 0 ? Math.max(...filtered.map(e => e.z)) : cameraZ;
+      
+      if (maxZ < horizon) {
+        while (maxZ < horizon) {
+          maxZ += Math.random() * 400 + 200; // Step size
+          filtered.push(generateRandomEntity(maxZ));
+          changed = true;
+        }
+      }
+      
+      // Also handle BACKWARDS scrolling (generating behind)
+      let minZ = filtered.length > 0 ? Math.min(...filtered.map(e => e.z)) : cameraZ;
+      const rearHorizon = cameraZ - 1000;
+      if (minZ > rearHorizon) {
+         while (minZ > rearHorizon) {
+           minZ -= Math.random() * 400 + 200;
+           filtered.push(generateRandomEntity(minZ));
+           changed = true;
+         }
+      }
+
+      return changed ? filtered : prev;
+    });
+    
+  }, [cameraZ]);
+
+  // Scroll Handling (Zoom)
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      // Prevent actual scrolling if we want to lock the view to zoom only
-      // But maybe we want to allow scrolling for content access?
-      // The user asked for "scroll zooms into the page itself... revealing another world... endless"
-      
-      // Let's hijack the scroll for zoom
-      // e.preventDefault(); // Optional: might block standard scrolling behavior too much?
-      
       const delta = e.deltaY;
-      setZoomLevel(prev => Math.max(1, prev + delta * ZOOM_SPEED));
+      // Move cameraZ. Positive delta (scroll down) = Move forward (+Z)
+      // Speed multiplier
+      setCameraZ(prev => prev + delta * 2);
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
@@ -39,28 +128,36 @@ const App: React.FC = () => {
 
   const handleWhisper = async (text: string) => {
     setIsLoading(true);
-    const tempId = Date.now().toString();
-
+    // Add a specific whisper entity right in front of the camera
+    const newEntity: WorldEntity = {
+      id: Date.now().toString(),
+      type: EntityType.WHISPER,
+      x: 50,
+      y: 50,
+      z: cameraZ + 500, // Just ahead
+      scale: 2,
+      content: text
+    };
+    
+    setEntities(prev => [...prev, newEntity]);
+    
+    // AI Processing (Side effect, doesn't block UI anymore)
     const response = await consultTheDream(text);
     setCurrentMood(response.sentiment);
-
-    const newFragment: DreamFragment = {
-      id: tempId,
-      text,
-      response: response.echo,
-      mood: response.sentiment,
-      timestamp: Date.now(),
-      imageUrl: undefined 
-    };
-
-    setFragments(prev => [...prev, newFragment]);
-
-    const visionBase64 = await manifestVision(response.visualPrompt);
     
-    setFragments(prev => prev.map(f => 
-      f.id === tempId ? { ...f, imageUrl: visionBase64 || undefined } : f
-    ));
-    
+    // Spawn response echo further down
+    setTimeout(() => {
+       setEntities(prev => [...prev, {
+         id: Date.now() + 'echo',
+         type: EntityType.WHISPER,
+         x: 50 + (Math.random()-0.5)*20,
+         y: 50 + (Math.random()-0.5)*20,
+         z: cameraZ + 1200,
+         scale: 3,
+         content: response.echo
+       }]);
+    }, 1000);
+
     setIsLoading(false);
   };
 
@@ -80,7 +177,6 @@ const App: React.FC = () => {
        y = (Math.random() - 0.5) * (chaosLevel * 0.2);
     }
     
-    // Elastic scaling
     if (chaosLevel > 10) {
        scale = 1 + Math.sin(Date.now() * 0.05) * 0.005 * chaosLevel; 
     }
@@ -97,116 +193,54 @@ const App: React.FC = () => {
     };
   };
 
-  // --- INFINITE ZOOM LOGIC ---
-  // We have multiple "Worlds" or Layers.
-  // 1. DreamLayer (Start)
-  // 2. VoidLayer (Next)
-  // 3. ... Recurring ...
-  
-  // Logic:
-  // Zoom 1 -> 2: DreamLayer scales up and fades out. VoidLayer scales up from 0.5 to 1 and fades in.
-  // Zoom 2 -> 3: VoidLayer scales up and fades out. Next layer...
-  
-  // Modulo arithmetic for endless layers
-  // Layer Index = Math.floor(zoomLevel - 1)
-  // Layer Progress = (zoomLevel - 1) % 1
-  
-  const layerIndex = Math.floor(zoomLevel - 1);
-  const layerProgress = (zoomLevel - 1) % 1;
-  
-  // Calculate transforms for Current Layer (Exiting) and Next Layer (Entering)
-  // Exiting Layer: Scale 1 -> 5, Opacity 1 -> 0
-  const exitScale = 1 + layerProgress * 4;
-  const exitOpacity = Math.max(0, 1 - layerProgress * 1.5);
-  const exitBlur = layerProgress * 20;
-
-  // Entering Layer: Scale 0.2 -> 1, Opacity 0 -> 1
-  // It should appear from the deep distance
-  const enterScale = 0.2 + layerProgress * 0.8; 
-  const enterOpacity = Math.min(1, layerProgress * 2);
-  const enterBlur = Math.max(0, 10 - layerProgress * 10); // Start blurry then focus
-
-  // Alternate worlds based on index parity
-  // Even: DreamLayer, Odd: VoidLayer (or we can add more)
-  const isEvenLayer = layerIndex % 2 === 0;
-
-  const renderLayer = (isCurrent: boolean, index: number) => {
-    // If this is the current base layer (the one zooming out)
-    if (index === layerIndex) {
-      return {
-        style: {
-          transform: `scale(${exitScale})`,
-          opacity: exitOpacity,
-          filter: `blur(${exitBlur}px)`,
-          zIndex: 10
-        },
-        component: isEvenLayer ? <DreamLayer fragments={fragments} isLoading={isLoading} /> : <VoidLayer />
-      };
-    }
-    // If this is the next layer (the one zooming in)
-    else if (index === layerIndex + 1) {
-      return {
-        style: {
-          transform: `scale(${enterScale})`,
-          opacity: enterOpacity,
-          filter: `blur(${enterBlur}px)`,
-          zIndex: 5
-        },
-        component: !isEvenLayer ? <DreamLayer fragments={fragments} isLoading={isLoading} /> : <VoidLayer />
-      };
-    }
-    return null;
-  };
-
-  const currentLayerProps = renderLayer(true, layerIndex);
-  const nextLayerProps = renderLayer(false, layerIndex + 1);
-
   return (
-    <main className="relative w-full h-screen bg-black overflow-hidden perspective-container">
+    <main className="relative w-full h-screen bg-black overflow-hidden">
       
-      {/* Background stays constant or shifts slowly */}
+      {/* Background */}
       <div className="fixed inset-0 z-0">
          <LivingBackground mood={currentMood} isDreaming={isLoading} />
       </div>
 
-      {/* Global Chaos Container - Shakes everything */}
-      <div className="relative w-full h-full" style={getChaosStyle()}>
-        
-        {/* Render Active Layers */}
-        {currentLayerProps && (
-          <div className="absolute inset-0 flex items-center justify-center transition-transform duration-75 origin-center will-change-transform" style={currentLayerProps.style}>
-            <div className="w-full max-w-7xl">
-              {currentLayerProps.component}
-            </div>
-          </div>
-        )}
-        
-        {nextLayerProps && (
-          <div className="absolute inset-0 flex items-center justify-center transition-transform duration-75 origin-center will-change-transform" style={nextLayerProps.style}>
-             <div className="w-full max-w-7xl">
-              {nextLayerProps.component}
-            </div>
-          </div>
-        )}
-
-        {/* Global Input Overlay - Always on top, never scales (HUD) */}
-        <div className="fixed inset-0 z-50 pointer-events-none">
-           <div className="pointer-events-auto w-full h-full">
-               <GlobalInputHandler 
-                  onWhisper={handleWhisper} 
-                  isLoading={isLoading} 
-                  onTypingActivity={handleTypingActivity}
-               />
-           </div>
+      {/* 3D Perspective Container */}
+      <div 
+        className="relative w-full h-full perspective-container"
+        style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
+      >
+        {/* World Transform Wrapper (Moves opposite to camera to simulate travel) */}
+        <div 
+          className="absolute inset-0 w-full h-full will-change-transform"
+          style={{ 
+            transform: `translateZ(${-cameraZ}px)`, // Move the world!
+            transformStyle: 'preserve-3d',
+            ...getChaosStyle() // Apply chaos to the world container
+          }}
+        >
+           {entities.map(entity => (
+             <EntityRenderer 
+               key={entity.id} 
+               entity={entity} 
+               cameraZ={cameraZ} 
+             />
+           ))}
         </div>
+      </div>
 
-        {/* Zoom Guide */}
-        <div className="fixed bottom-10 left-0 w-full text-center pointer-events-none mix-blend-difference z-40">
-           <p className="text-white/40 font-cyber text-xs tracking-[0.5em] animate-pulse">
-             SCROLL TO DIVE DEEPER [DEPTH: {zoomLevel.toFixed(2)}]
-           </p>
-        </div>
+      {/* Global Input HUD (Fixed on screen, separate from world space) */}
+      <div className="fixed inset-0 z-50 pointer-events-none">
+         <div className="pointer-events-auto w-full h-full">
+             <GlobalInputHandler 
+                onWhisper={handleWhisper} 
+                isLoading={isLoading} 
+                onTypingActivity={handleTypingActivity}
+             />
+         </div>
+      </div>
 
+      {/* Depth Indicator */}
+      <div className="fixed bottom-10 right-10 text-right pointer-events-none z-40">
+         <p className="text-white/20 font-cyber text-xs tracking-[0.2em]">
+           COORD_Z: {Math.floor(cameraZ)}
+         </p>
       </div>
 
       {/* Grid Overlay */}
