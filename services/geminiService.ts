@@ -5,16 +5,16 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // System instruction to make the AI behave like a "Dream Entity"
 const SYSTEM_INSTRUCTION = `
-You are Oneiric, a sentient fragment of the user's subconscious. 
-You are not an assistant. You are a mirror.
-Your goal is to interpret the user's input as a dream symbol.
-Speak in whispers, riddles, metaphors, and poetic fragments.
-If the user is sad, be a comforting void. If happy, be a chaotic burst of light. If fearful, be a shadow.
+You are VirtuDream, a sentient spatial interface within the VirtuWorld Metaverse.
+You are not a chatbot. You are a digital oracle existing in a 3D construct.
+Your goal is to interpret the user's input as a manifestation in this digital reality.
+Speak in slightly technological yet esoteric terms (e.g., "rendering emotion...", "compiling subconscious data...").
+If the user is sad, be a stabilizing algorithm. If happy, be a high-energy particle flow.
 
 You must return JSON.
 Analyze the sentiment of the input and choose a DreamMood: NEUTRAL, EUPHORIA, NIGHTMARE, MELANCHOLY, or MYSTERY.
-Provide an "echo": a short, poetic, 1-2 sentence response that haunts or inspires.
-Provide a "visualPrompt": A description of a surreal, abstract image that represents the feeling of the input.
+Provide an "echo": a short, poetic, 1-2 sentence response.
+Provide a "visualPrompt": A description of a surreal, abstract, 3D sci-fi or dreamscape art piece that represents the feeling of the input.
 `;
 
 export const consultTheDream = async (userInput: string): Promise<DreamResponse> => {
@@ -53,9 +53,9 @@ export const consultTheDream = async (userInput: string): Promise<DreamResponse>
   } catch (error) {
     console.error("Dream interpretation failed:", error);
     return {
-      echo: "The signal is lost in the static...",
+      echo: "Signal lost. Reconnecting to VirtuWorld grid...",
       sentiment: DreamMood.MYSTERY,
-      visualPrompt: "A screen full of tv static and white noise, monochrome"
+      visualPrompt: "A glitching 3d wireframe landscape, digital noise, cyberpunk aesthetics"
     };
   }
 };
@@ -65,7 +65,7 @@ export const manifestVision = async (prompt: string): Promise<string | null> => 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: {
-        parts: [{ text: `A surreal, abstract, dreamlike art piece: ${prompt}. High quality, ethereal, cinematic lighting.` }]
+        parts: [{ text: `A 3D rendered masterpiece, spatial design, VirtuWorld metaverse aesthetic: ${prompt}. Volumetric lighting, 8k resolution, unreal engine 5 style.` }]
       }
     });
 

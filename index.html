@@ -3,21 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Oneiric</title>
+    <title>VirtuDream</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Quicksand:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Quicksand:wght@300;400;600&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
       body {
         margin: 0;
-        overflow: hidden;
-        background-color: #050505;
+        overflow-x: hidden;
+        background-color: #000000;
         font-family: 'Quicksand', sans-serif;
         color: #e0e0e0;
       }
       .font-dream {
         font-family: 'Cinzel', serif;
+      }
+      .font-cyber {
+        font-family: 'Orbitron', sans-serif;
       }
       /* Custom scrollbar hiding */
       ::-webkit-scrollbar {
@@ -28,8 +31,8 @@
         animation: fadeIn 2s ease-in-out forwards;
       }
       @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(20px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
       }
       .breathing {
         animation: breathe 8s infinite ease-in-out;
@@ -46,6 +49,22 @@
         0% { transform: translateY(0px); }
         50% { transform: translateY(-6px); }
         100% { transform: translateY(0px); }
+      }
+      
+      /* Spatial 3D Effects */
+      .perspective-container {
+        perspective: 1200px;
+        transform-style: preserve-3d;
+      }
+      
+      .spatial-card {
+        transform: rotateX(5deg) scale(0.95);
+        transition: transform 0.5s ease-out, box-shadow 0.5s ease-out;
+      }
+      
+      .spatial-card:hover {
+        transform: rotateX(0deg) scale(1) translateZ(20px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.5);
       }
     </style>
   <script type="importmap">

@@ -9,40 +9,37 @@ interface MoodConfig {
   r: number;
   g: number;
   b: number;
-  speed: number;
-  turbulence: number;
+  speed: number; // Z-axis speed
+  spread: number; // How wide the tunnel is
 }
 
 const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Store persistent state so we don't reset particles on mood change
+  // Persistent state
   const particlesRef = useRef<any[]>([]);
-  const timeRef = useRef(0);
-  const frameRef = useRef(0);
-  
-  // We need to access the *current* mood in the animation loop without restarting the effect
   const moodRef = useRef(mood);
+  const currentColorRef = useRef<MoodConfig>({ r: 100, g: 100, b: 120, speed: 2, spread: 1000 });
   
-  // Keep track of current color state for smooth transition interpolation
-  const currentColorRef = useRef<MoodConfig>({ r: 80, g: 80, b: 90, speed: 0.001, turbulence: 50 });
+  // Interaction State
+  const mouseRef = useRef({ x: 0, y: 0 }); // Normalized mouse position (-1 to 1)
+  const cameraRef = useRef({ x: 0, y: 0 }); // Smoothed camera position
+  const warpSpeedRef = useRef(0); // Temporary speed boost on click
 
-  // Update ref when prop changes
   useEffect(() => {
     moodRef.current = mood;
   }, [mood]);
 
   const getMoodConfig = (m: DreamMood): MoodConfig => {
     switch (m) {
-      case DreamMood.EUPHORIA: return { r: 255, g: 200, b: 100, speed: 0.002, turbulence: 150 }; // Warm Gold
-      case DreamMood.NIGHTMARE: return { r: 139, g: 0, b: 0, speed: 0.004, turbulence: 220 }; // Deep Crimson
-      case DreamMood.MELANCHOLY: return { r: 40, g: 80, b: 140, speed: 0.0008, turbulence: 60 }; // Somber Blue
-      case DreamMood.MYSTERY: return { r: 110, g: 30, b: 160, speed: 0.0015, turbulence: 120 }; // Mystic Purple
-      default: return { r: 80, g: 80, b: 90, speed: 0.001, turbulence: 50 }; // Neutral Grey
+      case DreamMood.EUPHORIA: return { r: 255, g: 215, b: 100, speed: 8, spread: 1500 }; // Fast Gold
+      case DreamMood.NIGHTMARE: return { r: 200, g: 20, b: 20, speed: 12, spread: 800 }; // Violent Red
+      case DreamMood.MELANCHOLY: return { r: 50, g: 100, b: 200, speed: 1, spread: 1200 }; // Slow Blue
+      case DreamMood.MYSTERY: return { r: 140, g: 50, b: 220, speed: 3, spread: 2000 }; // Deep Purple
+      default: return { r: 100, g: 100, b: 120, speed: 2, spread: 1000 }; // Neutral
     }
   };
 
-  // Linear interpolation helper
   const lerp = (start: number, end: number, factor: number) => start + (end - start) * factor;
 
   useEffect(() => {
@@ -53,17 +50,17 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
 
     let width = canvas.width = window.innerWidth;
     let height = canvas.height = window.innerHeight;
-
-    // Initialize particles only if they don't exist
+    
+    // Initialize 3D particles
+    const particleCount = 400;
     if (particlesRef.current.length === 0) {
-      for(let i = 0; i < 60; i++) {
-          particlesRef.current.push({
-              x: Math.random() * width,
-              y: Math.random() * height,
-              vx: (Math.random() - 0.5) * 0.5,
-              vy: (Math.random() - 0.5) * 0.5,
-              size: Math.random() * 250 + 50
-          });
+      for(let i = 0; i < particleCount; i++) {
+        particlesRef.current.push({
+          x: (Math.random() - 0.5) * 2000, // True 3D coordinates
+          y: (Math.random() - 0.5) * 2000,
+          z: Math.random() * 2000,
+          size: Math.random() * 2
+        });
       }
     }
 
@@ -71,75 +68,117 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     };
-    window.addEventListener('resize', resize);
 
-    const animate = () => {
-      // 1. Determine target state based on latest mood
-      const targetConfig = getMoodConfig(moodRef.current);
-      const current = currentColorRef.current;
-
-      // 2. Smoothly interpolate current state towards target
-      // Lower factor = slower, more "dreamlike" transition
-      const colorFactor = 0.02; 
-      const physicsFactor = 0.01;
-
-      current.r = lerp(current.r, targetConfig.r, colorFactor);
-      current.g = lerp(current.g, targetConfig.g, colorFactor);
-      current.b = lerp(current.b, targetConfig.b, colorFactor);
-      current.speed = lerp(current.speed, targetConfig.speed, physicsFactor);
-      current.turbulence = lerp(current.turbulence, targetConfig.turbulence, physicsFactor);
-
-      // Advance time
-      timeRef.current += current.speed;
-      
-      // Clear screen with a slight trail effect
-      ctx.fillStyle = `rgba(5, 5, 5, 0.2)`; 
-      ctx.fillRect(0, 0, width, height);
-
-      // Draw particles
-      particlesRef.current.forEach(p => {
-          // Calculate organic noise movement
-          const noiseX = Math.sin(timeRef.current * 2 + p.y * 0.002) * (current.turbulence / 100);
-          const noiseY = Math.cos(timeRef.current * 3 + p.x * 0.002) * (current.turbulence / 100);
-          
-          p.x += p.vx + noiseX;
-          p.y += p.vy + noiseY;
-
-          // Wrap particles around screen edges
-          const buffer = 300;
-          if(p.x < -buffer) p.x = width + buffer;
-          if(p.x > width + buffer) p.x = -buffer;
-          if(p.y < -buffer) p.y = height + buffer;
-          if(p.y > height + buffer) p.y = -buffer;
-
-          // Create gradient for soft "blob" look
-          const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
-          // Use interpolated RGB values
-          gradient.addColorStop(0, `rgba(${current.r}, ${current.g}, ${current.b}, 0.08)`);
-          gradient.addColorStop(0.5, `rgba(${current.r}, ${current.g}, ${current.b}, 0.02)`);
-          gradient.addColorStop(1, `rgba(${current.r}, ${current.g}, ${current.b}, 0)`);
-          
-          ctx.fillStyle = gradient;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
-      });
-      
-      frameRef.current = requestAnimationFrame(animate);
+    const handleMouseMove = (e: MouseEvent) => {
+      // Normalize mouse coordinates to -1 to 1 range
+      mouseRef.current = {
+        x: (e.clientX / width) * 2 - 1,
+        y: (e.clientY / height) * 2 - 1
+      };
     };
 
-    animate();
+    const handleMouseDown = () => {
+      // Trigger warp speed
+      warpSpeedRef.current = 50;
+    };
+
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousedown', handleMouseDown);
+
+    const animate = () => {
+      const target = getMoodConfig(moodRef.current);
+      const current = currentColorRef.current;
+
+      // Smooth interpolation for physics/colors
+      const f = 0.02;
+      current.r = lerp(current.r, target.r, f);
+      current.g = lerp(current.g, target.g, f);
+      current.b = lerp(current.b, target.b, f);
+      current.speed = lerp(current.speed, target.speed, f);
+      current.spread = lerp(current.spread, target.spread, f);
+
+      // Smooth Camera/Parallax movement
+      const camF = 0.05;
+      cameraRef.current.x = lerp(cameraRef.current.x, mouseRef.current.x, camF);
+      cameraRef.current.y = lerp(cameraRef.current.y, mouseRef.current.y, camF);
+
+      // Decay warp speed
+      warpSpeedRef.current = lerp(warpSpeedRef.current, 0, 0.02);
+      const totalSpeed = current.speed + warpSpeedRef.current;
+
+      // Calculate Vanishing Point (shifts opposite to mouse to simulate looking around)
+      const vpX = (width / 2) - (cameraRef.current.x * width * 0.25);
+      const vpY = (height / 2) - (cameraRef.current.y * height * 0.25);
+
+      // Create a deep, dark version of the current mood color for the background void
+      const bgR = Math.floor(current.r * 0.08); 
+      const bgG = Math.floor(current.g * 0.08); 
+      const bgB = Math.floor(current.b * 0.08); 
+
+      // Fade trail with tinted void
+      ctx.fillStyle = `rgba(${bgR}, ${bgG}, ${bgB}, 0.25)`;
+      ctx.fillRect(0, 0, width, height);
+
+      // Sort particles by Z so distant ones draw first (simple depth buffering)
+      particlesRef.current.sort((a, b) => b.z - a.z);
+
+      particlesRef.current.forEach(p => {
+        // Move particle towards camera
+        p.z -= totalSpeed;
+
+        // Reset if passed camera
+        if (p.z <= 1) {
+          p.z = 2000;
+          p.x = (Math.random() - 0.5) * current.spread;
+          p.y = (Math.random() - 0.5) * current.spread;
+        }
+
+        // 3D Projection Math
+        // fov / (fov + z)
+        const fov = 300;
+        const scale = fov / (fov + p.z);
+        
+        // Apply Vanishing Point Shift
+        const x2d = p.x * scale + vpX;
+        const y2d = p.y * scale + vpY;
+        const size = Math.max(0.1, p.size * scale * 3);
+
+        // Draw
+        const alpha = Math.min(1, (2000 - p.z) / 1000); // Fade in as they get closer
+        ctx.fillStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x2d, y2d, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Optional: Connection lines for "constellation" feel if close enough
+        // Connect to the Dynamic Vanishing Point for speed/warp effect
+        if (scale > 0.8) { 
+            ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.05)`;
+            ctx.beginPath();
+            ctx.moveTo(x2d, y2d);
+            ctx.lineTo(vpX, vpY); // Line to vanishing center
+            ctx.stroke();
+        }
+      });
+
+      requestAnimationFrame(animate);
+    };
+
+    const animId = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener('resize', resize);
-      cancelAnimationFrame(frameRef.current);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      cancelAnimationFrame(animId);
     };
-  }, []); // Empty dependency array ensures we don't restart the loop on prop change
+  }, []);
 
   return (
     <canvas 
       ref={canvasRef} 
-      className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none transition-opacity duration-1000"
+      className="fixed top-0 left-0 w-full h-full -z-10 bg-black cursor-crosshair"
     />
   );
 };
