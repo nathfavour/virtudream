@@ -40,20 +40,17 @@ export const generateRelevantEntity = (
 
   switch (biome) {
     case 'VOID':
-      // Balanced text density - readable but present
+      // Balanced text density
       if (r > 0.92) { 
         type = EntityType.WHISPER;
         const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
         content = pool[Math.floor(r * 100) % pool.length];
         scale = 2; 
-      } else if (r > 0.3) {
-        // High density stars/dust to prevent empty screen
-        type = EntityType.FLICKER; 
-        scale = 0.5 + r * 3; // Varied sizes
       } else {
-        // Background noise
+        // ALWAYS fill void with particles to prevent "empty color page"
+        // High variance in x/y to create "spraying" effect
         type = EntityType.FLICKER; 
-        scale = 0.5;
+        scale = 0.5 + r * 5; // Varied sizes up to 5.5x
       }
       break;
 
@@ -67,11 +64,9 @@ export const generateRelevantEntity = (
       } else if (r > 0.8) {
         type = EntityType.BLOB; 
         hue = (r * 360) % 360;
-      } else if (r > 0.3) {
-        type = EntityType.FLICKER; // Much more stars
-        scale = 0.5 + r;
       } else {
-        type = EntityType.FLICKER;
+        type = EntityType.FLICKER; // Default to stars
+        scale = 0.5 + r * 3;
       }
       break;
 
@@ -81,14 +76,12 @@ export const generateRelevantEntity = (
         type = EntityType.GALAXY; 
         scale = 10 + r * 10;
         hue = 200 + (r * 100); 
-      } else if (r > 0.85) { // Frequent Portals in Nebula (was 0.95)
+      } else if (r > 0.85) { 
         type = EntityType.PORTAL;
         scale = 3 + r * 2;
-      } else if (r > 0.4) {
-        type = EntityType.FLICKER; // Space dust
-        scale = r * 2;
       } else {
-        type = EntityType.FLICKER;
+        type = EntityType.FLICKER; // Space dust
+        scale = r * 4;
       }
       break;
       
@@ -99,11 +92,9 @@ export const generateRelevantEntity = (
       } else if (r > 0.85) { // Moderate text (was 0.95)
         type = EntityType.WHISPER;
         content = "01010101..."; 
-      } else if (r > 0.2) { // High density bits
-        type = EntityType.FLICKER; 
-        scale = 1 + r;
       } else {
-        type = EntityType.FLICKER;
+        type = EntityType.FLICKER; // High density bits
+        scale = 1 + r * 2;
       }
       break;
 

@@ -68,11 +68,34 @@ const App: React.FC = () => {
       // Shift the vanishing point opposite to mouse to look around
       const steerX = mouseRef.current.x * -500; // Pixels shift
       const steerY = mouseRef.current.y * -500;
+      
+      // SHAKE EFFECT
+      // Calculate shake based on speed + proximity of nearby massive objects
+      const speed = Math.abs(velocity);
+      let shakeX = (Math.random() - 0.5) * speed * 0.5; // Base speed shake
+      let shakeY = (Math.random() - 0.5) * speed * 0.5;
+
+      // Check for nearby massive entities to simulate "shockwave" as we pass
+      // Optimization: Only check a random subset or if we know we are deep enough?
+      // Actually, JS is fast enough to iterate 100-200 entities.
+      // We look for entities just about to be passed (Z between current and current + 300)
+      const nearby = entities.find(e => 
+         e.z > cameraZRef.current && 
+         e.z < cameraZRef.current + 400 && 
+         (e.scale > 3 || e.type === EntityType.PORTAL || e.type === EntityType.GALAXY)
+      );
+
+      if (nearby) {
+         const proximity = 400 - (nearby.z - cameraZRef.current);
+         const intensity = (proximity / 400) * (nearby.scale * 2); // Closer + Bigger = More Shake
+         shakeX += (Math.random() - 0.5) * intensity;
+         shakeY += (Math.random() - 0.5) * intensity;
+      }
 
       // Update DOM directly for zero-latency scroll
       if (worldContainerRef.current) {
-        // Combined Z-travel and XY-steering
-        worldContainerRef.current.style.transform = `translate3d(${steerX}px, ${steerY}px, ${-cameraZRef.current}px)`;
+        // Combined Z-travel, XY-steering, and Shake
+        worldContainerRef.current.style.transform = `translate3d(${steerX + shakeX}px, ${steerY + shakeY}px, ${-cameraZRef.current}px)`;
       }
 
       // Procedural Generation Check
