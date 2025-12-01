@@ -57,15 +57,17 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
     let width = canvas.width = window.innerWidth;
     let height = canvas.height = window.innerHeight;
     
-    // Initialize 3D particles
-    const particleCount = 450;
+    // Initialize 3D particles - INCREASED COUNT & CHANGED BEHAVIOR
+    const particleCount = 800; // More particles
     if (particlesRef.current.length === 0) {
       for(let i = 0; i < particleCount; i++) {
         particlesRef.current.push({
-          x: (Math.random() - 0.5) * 2000, // True 3D coordinates
+          x: (Math.random() - 0.5) * 2000, 
           y: (Math.random() - 0.5) * 2000,
           z: Math.random() * 2000,
-          size: Math.random() * 2
+          size: Math.random() * 2 + 0.5,
+          angle: Math.random() * Math.PI * 2, // For spiral/whirlwind
+          radius: 200 + Math.random() * 800 // Distance from center for whirlwind
         });
       }
     }
@@ -141,22 +143,22 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
       const gradY = mousePixelY;
       
       // Dynamic radius based on mood intensity or speed
-      const radius = Math.max(width, height) * (0.6 + Math.sin(time) * 0.1); 
+      const radius = Math.max(width, height) * (0.8 + Math.sin(time * 0.5) * 0.2); // Bigger radius
 
-      // Create a complex gradient
+      // Create a complex gradient - ALWAYS VISIBLE
       const gradient = ctx.createRadialGradient(gradX, gradY, 0, width/2, height/2, radius);
       
       // Center color (Mouse): Tinted by current mood, but bright/alive
-      gradient.addColorStop(0, `rgba(${current.r}, ${current.g}, ${current.b}, 0.15)`);
+      gradient.addColorStop(0, `rgba(${current.r}, ${current.g}, ${current.b}, 0.3)`); // Higher opacity
       
-      // Mid color: Deep shifting hues
-      const shiftR = Math.sin(time * 0.5) * 50 + current.r * 0.5;
-      const shiftB = Math.cos(time * 0.5) * 50 + current.b * 0.8;
-      gradient.addColorStop(0.4, `rgba(${shiftR}, ${current.g * 0.5}, ${shiftB}, 0.08)`);
+      // Mid color: Deep shifting hues - VIBRANT
+      const shiftR = Math.sin(time * 0.5) * 50 + current.r * 0.8;
+      const shiftB = Math.cos(time * 0.5) * 50 + current.b * 0.9;
+      gradient.addColorStop(0.4, `rgba(${shiftR}, ${current.g * 0.6}, ${shiftB}, 0.2)`);
       
-      // Outer edge: Fades to black (approx 60% black as requested)
-      gradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.9)');
-      gradient.addColorStop(1, '#000000');
+      // Outer edge: Fades to a deep color, NOT black
+      gradient.addColorStop(0.8, `rgba(${current.r * 0.2}, ${current.g * 0.2}, ${current.b * 0.3}, 0.8)`);
+      gradient.addColorStop(1, `rgb(${current.r * 0.1}, ${current.g * 0.1}, ${current.b * 0.15})`);
 
       // Clear with the breathing gradient instead of solid color
       ctx.fillStyle = gradient;
@@ -180,7 +182,7 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
          }
          ctx.lineTo(width, height);
          ctx.lineTo(0, height);
-         ctx.fillStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.03)`;
+         ctx.fillStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.05)`; // More visible
          ctx.fill();
          
          // Wave Highlight Line
@@ -193,23 +195,35 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
             if (px === 0) ctx.moveTo(px, py);
             else ctx.lineTo(px, py);
          }
-         ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.1)`;
+         ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.15)`;
          ctx.stroke();
       }
 
       // Sort particles by Z so distant ones draw first (simple depth buffering)
-
       particlesRef.current.sort((a, b) => b.z - a.z);
 
       particlesRef.current.forEach(p => {
+        // WHIRLWIND MOTION
+        // Particles spiral around the center
+        p.angle += 0.005 + (current.speed * 0.0001);
+        p.radius += Math.sin(time + p.z) * 0.5; // Breathe radius
+        
+        // Update X/Y based on spiral
+        // We blend the spiral motion with the original random 3D position
+        const spiralX = Math.cos(p.angle) * p.radius;
+        const spiralY = Math.sin(p.angle) * p.radius;
+        
+        p.x = spiralX;
+        p.y = spiralY;
+
         // Move particle towards camera
         p.z -= totalSpeed;
 
         // Reset if passed camera
         if (p.z <= 1) {
           p.z = 2000;
-          p.x = (Math.random() - 0.5) * current.spread;
-          p.y = (Math.random() - 0.5) * current.spread;
+          p.angle = Math.random() * Math.PI * 2;
+          p.radius = 200 + Math.random() * 800;
         }
 
         // 3D Projection Math
@@ -229,6 +243,19 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
         ctx.arc(x2d, y2d, size, 0, Math.PI * 2);
         ctx.fill();
         
+        // Trail effect for fast particles (WHIRLWIND STREAKS)
+        if (totalSpeed > 5 || scale > 0.5) {
+           ctx.beginPath();
+           ctx.moveTo(x2d, y2d);
+           // Calculate previous position roughly
+           const prevX = (Math.cos(p.angle - 0.05) * p.radius) * scale + vpX;
+           const prevY = (Math.sin(p.angle - 0.05) * p.radius) * scale + vpY;
+           ctx.lineTo(prevX, prevY);
+           ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${alpha * 0.5})`;
+           ctx.lineWidth = size * 0.5;
+           ctx.stroke();
+        }
+
         // INTERACTIVE: Connect to Mouse (Tactile Net)
         // If particle is close to the mouse cursor on 2D plane
         const dx = x2d - mousePixelX;
