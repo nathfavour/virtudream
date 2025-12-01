@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import LivingBackground from './components/LivingBackground';
 import DreamLayer from './components/DreamLayer';
 import VoidLayer from './components/VoidLayer';
+import WhisperInput from './components/WhisperInput';
 import { DreamMood, DreamFragment } from './types';
 import { consultTheDream, manifestVision } from './services/geminiService';
 
@@ -126,8 +127,7 @@ const App: React.FC = () => {
         <LivingBackground mood={currentMood} isDreaming={isLoading} />
         <DreamLayer 
           fragments={fragments} 
-          isLoading={isLoading} 
-          onWhisper={handleWhisper} 
+          isLoading={isLoading}
         />
         
         {/* Scroll Prompt at bottom of first layer */}

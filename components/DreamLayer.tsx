@@ -1,15 +1,13 @@
 import React, { useRef, useEffect } from 'react';
-import WhisperInput from './WhisperInput';
 import DreamText from './DreamText';
 import { DreamMood, DreamFragment } from '../types';
 
 interface DreamLayerProps {
   fragments: DreamFragment[];
   isLoading: boolean;
-  onWhisper: (text: string) => void;
 }
 
-const DreamLayer: React.FC<DreamLayerProps> = ({ fragments, isLoading, onWhisper }) => {
+const DreamLayer: React.FC<DreamLayerProps> = ({ fragments, isLoading }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
