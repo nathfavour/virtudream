@@ -3,7 +3,8 @@ export enum EntityType {
   GALAXY = 'GALAXY',
   FLICKER = 'FLICKER',
   WIDGET_INPUT = 'WIDGET_INPUT',
-  WIDGET_MIRROR = 'WIDGET_MIRROR'
+  PORTAL = 'PORTAL',
+  BLOB = 'BLOB'
 }
 
 export interface WorldEntity {
@@ -15,6 +16,7 @@ export interface WorldEntity {
   scale: number;
   content?: string;
   hue?: number;
+  velocity?: { x: number, y: number }; // For gravity effects
 }
 
 export const WHISPER_DATA = [
@@ -32,6 +34,10 @@ export const WHISPER_DATA = [
   "Echoes of a future past.",
   "System unstable.",
   "Rebooting universe...",
-  "Trace detected."
+  "Trace detected.",
+  "Entropy increases.",
+  "Look behind you.",
+  "Nothing is real.",
+  "Wake up.",
+  "Connecting..."
 ];
-

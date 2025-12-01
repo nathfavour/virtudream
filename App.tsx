@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import LivingBackground from './components/LivingBackground';
 import GlobalInputHandler from './components/GlobalInputHandler';
 import EntityRenderer from './components/EntityRenderer';
+import LiquidCursor from './components/LiquidCursor';
 import { DreamMood, DreamFragment } from './types';
 import { WorldEntity, EntityType, WHISPER_DATA } from './worldTypes';
 import { consultTheDream, manifestVision } from './services/geminiService';
@@ -12,25 +13,26 @@ const App: React.FC = () => {
   const [chaosLevel, setChaosLevel] = useState(0); 
 
   // --- INFINITE WORLD STATE ---
-  // Start at a random "deep" coordinate to ensure no two loads are identical
-  const [cameraZ, setCameraZ] = useState(() => Math.random() * 5000 + 1000);
+  const cameraZRef = useRef(Math.random() * 5000 + 1000);
+  const targetCameraZRef = useRef(cameraZRef.current);
+  const worldContainerRef = useRef<HTMLDivElement>(null);
+  
   const [entities, setEntities] = useState<WorldEntity[]>([]);
   
   // Generation boundaries
-  const RENDER_DISTANCE = 3000;
-  const GENERATION_CHUNK = 1000;
+  const RENDER_DISTANCE = 4000;
   const lastGenZ = useRef(0);
 
-  // Initial Generation on Mount
+  // Initial Generation
   useEffect(() => {
-    // Generate initial world around the random start point
     const initialEntities: WorldEntity[] = [];
-    // Generate range: cameraZ - 1000 to cameraZ + 3000
-    for (let z = cameraZ - 1000; z < cameraZ + 3000; z += Math.random() * 300 + 200) {
+    const startZ = cameraZRef.current;
+    // Generate deeper range for smoothness
+    for (let z = startZ - 2000; z < startZ + 4000; z += Math.random() * 400 + 200) {
        initialEntities.push(generateRandomEntity(z));
     }
     setEntities(initialEntities);
-    lastGenZ.current = cameraZ;
+    lastGenZ.current = startZ;
   }, []);
 
   const generateRandomEntity = (z: number): WorldEntity => {
@@ -40,24 +42,29 @@ const App: React.FC = () => {
     let content = undefined;
     let hue = 0;
 
-    if (r > 0.8) {
+    if (r > 0.9) {
+      type = EntityType.PORTAL;
+      scale = 2 + Math.random();
+    } else if (r > 0.85) {
+      type = EntityType.BLOB;
+      scale = 1.5 + Math.random();
+    } else if (r > 0.7) {
       type = EntityType.WHISPER;
       content = WHISPER_DATA[Math.floor(Math.random() * WHISPER_DATA.length)];
-      scale = 1 + Math.random();
-    } else if (r > 0.6) {
+      scale = 1.5 + Math.random(); // Bigger text
+    } else if (r > 0.5) {
       type = EntityType.GALAXY;
       hue = Math.random() * 360;
-      scale = 2 + Math.random() * 3;
+      scale = 4 + Math.random() * 4;
     } else if (r > 0.95) {
       type = EntityType.WIDGET_INPUT;
     }
 
-    // Spread X/Y widely (-100 to 200%) to create a tunnel feel
     return {
       id: Math.random().toString(36).substr(2, 9),
       type,
-      x: (Math.random() - 0.5) * 150 + 50, // Center bias? No, random spread
-      y: (Math.random() - 0.5) * 150 + 50,
+      x: (Math.random() - 0.5) * 120 + 50, 
+      y: (Math.random() - 0.5) * 120 + 50,
       z: z,
       scale,
       content,
@@ -65,61 +72,74 @@ const App: React.FC = () => {
     };
   };
 
-  // Procedural Generation Loop
+  // Scroll / Zoom Loop (RequestAnimationFrame)
   useEffect(() => {
-    // Check if we need to generate more in front or behind
-    // For simplicity, let's just keep a buffer ahead of the camera
-    // If camera moves past lastGenZ + threshold, generate more
-    
-    // NOTE: This assumes mostly forward travel. For bidirectional, we'd need min/max checks.
-    // Let's implement simple "horizon" check.
-    
-    const horizon = cameraZ + RENDER_DISTANCE;
-    
-    setEntities(prev => {
-      const next = [...prev];
-      let changed = false;
+    let animId: number;
+
+    const loop = () => {
+      // Smooth Lerp Camera Z
+      const diff = targetCameraZRef.current - cameraZRef.current;
       
-      // 1. Remove entities too far behind (cameraZ - 1500)
-      const keepThreshold = cameraZ - 1500;
-      const filtered = next.filter(e => e.z > keepThreshold);
-      if (filtered.length !== next.length) changed = true;
-      
-      // 2. Add entities if horizon is empty
-      // Find max Z
-      let maxZ = filtered.length > 0 ? Math.max(...filtered.map(e => e.z)) : cameraZ;
-      
-      if (maxZ < horizon) {
-        while (maxZ < horizon) {
-          maxZ += Math.random() * 400 + 200; // Step size
-          filtered.push(generateRandomEntity(maxZ));
-          changed = true;
-        }
-      }
-      
-      // Also handle BACKWARDS scrolling (generating behind)
-      let minZ = filtered.length > 0 ? Math.min(...filtered.map(e => e.z)) : cameraZ;
-      const rearHorizon = cameraZ - 1000;
-      if (minZ > rearHorizon) {
-         while (minZ > rearHorizon) {
-           minZ -= Math.random() * 400 + 200;
-           filtered.push(generateRandomEntity(minZ));
-           changed = true;
-         }
+      // Apply momentum - 5% smooth factor (very fluid)
+      cameraZRef.current += diff * 0.05; 
+
+      // Update DOM directly for zero-latency scroll
+      if (worldContainerRef.current) {
+        // We move the world container opposite to camera
+        worldContainerRef.current.style.transform = `translateZ(${-cameraZRef.current}px)`;
       }
 
-      return changed ? filtered : prev;
-    });
-    
-  }, [cameraZ]);
+      // Procedural Generation Check
+      const currentZ = cameraZRef.current;
+      const horizon = currentZ + RENDER_DISTANCE;
+      const rearHorizon = currentZ - 2000;
 
-  // Scroll Handling (Zoom)
+      // Only trigger React state update if we crossed a threshold to avoid stutter
+      if (Math.abs(currentZ - lastGenZ.current) > 500) {
+         setEntities(prev => {
+            const next = [...prev];
+            // Filter far behind
+            const filtered = next.filter(e => e.z > rearHorizon);
+            
+            // Add new ahead
+            let maxZ = filtered.length > 0 ? Math.max(...filtered.map(e => e.z)) : currentZ;
+            let added = false;
+            
+            while (maxZ < horizon) {
+              maxZ += Math.random() * 400 + 200;
+              filtered.push(generateRandomEntity(maxZ));
+              added = true;
+            }
+            
+            // Add new behind (if reversing)
+            let minZ = filtered.length > 0 ? Math.min(...filtered.map(e => e.z)) : currentZ;
+            while (minZ > rearHorizon) {
+               minZ -= Math.random() * 400 + 200;
+               filtered.push(generateRandomEntity(minZ));
+               added = true;
+            }
+
+            if (added || filtered.length !== next.length) {
+               lastGenZ.current = currentZ;
+               return filtered;
+            }
+            return prev;
+         });
+      }
+
+      animId = requestAnimationFrame(loop);
+    };
+    
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  // Event Listener for Wheel (Updates Target, not State)
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      const delta = e.deltaY;
-      // Move cameraZ. Positive delta (scroll down) = Move forward (+Z)
-      // Speed multiplier
-      setCameraZ(prev => prev + delta * 2);
+      // Zoom Sensitivity
+      const speed = 2.5; 
+      targetCameraZRef.current += e.deltaY * speed;
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false });
@@ -128,31 +148,28 @@ const App: React.FC = () => {
 
   const handleWhisper = async (text: string) => {
     setIsLoading(true);
-    // Add a specific whisper entity right in front of the camera
     const newEntity: WorldEntity = {
       id: Date.now().toString(),
       type: EntityType.WHISPER,
       x: 50,
       y: 50,
-      z: cameraZ + 500, // Just ahead
+      z: cameraZRef.current + 800, 
       scale: 2,
       content: text
     };
     
     setEntities(prev => [...prev, newEntity]);
     
-    // AI Processing (Side effect, doesn't block UI anymore)
     const response = await consultTheDream(text);
     setCurrentMood(response.sentiment);
     
-    // Spawn response echo further down
     setTimeout(() => {
        setEntities(prev => [...prev, {
          id: Date.now() + 'echo',
          type: EntityType.WHISPER,
-         x: 50 + (Math.random()-0.5)*20,
-         y: 50 + (Math.random()-0.5)*20,
-         z: cameraZ + 1200,
+         x: 50 + (Math.random()-0.5)*30,
+         y: 50 + (Math.random()-0.5)*30,
+         z: cameraZRef.current + 1500, // Further out
          scale: 3,
          content: response.echo
        }]);
@@ -194,7 +211,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <main className="relative w-full h-screen bg-black overflow-hidden">
+    <main className="relative w-full h-screen bg-black overflow-hidden cursor-none">
+      <LiquidCursor />
       
       {/* Background */}
       <div className="fixed inset-0 z-0">
@@ -206,26 +224,26 @@ const App: React.FC = () => {
         className="relative w-full h-full perspective-container"
         style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
       >
-        {/* World Transform Wrapper (Moves opposite to camera to simulate travel) */}
+        {/* World Transform Wrapper (Ref-driven for performance) */}
         <div 
+          ref={worldContainerRef}
           className="absolute inset-0 w-full h-full will-change-transform"
           style={{ 
-            transform: `translateZ(${-cameraZ}px)`, // Move the world!
             transformStyle: 'preserve-3d',
-            ...getChaosStyle() // Apply chaos to the world container
+            ...getChaosStyle() 
           }}
         >
            {entities.map(entity => (
              <EntityRenderer 
                key={entity.id} 
                entity={entity} 
-               cameraZ={cameraZ} 
+               cameraZ={0} 
              />
            ))}
         </div>
       </div>
 
-      {/* Global Input HUD (Fixed on screen, separate from world space) */}
+      {/* Global Input HUD */}
       <div className="fixed inset-0 z-50 pointer-events-none">
          <div className="pointer-events-auto w-full h-full">
              <GlobalInputHandler 
@@ -237,9 +255,9 @@ const App: React.FC = () => {
       </div>
 
       {/* Depth Indicator */}
-      <div className="fixed bottom-10 right-10 text-right pointer-events-none z-40">
-         <p className="text-white/20 font-cyber text-xs tracking-[0.2em]">
-           COORD_Z: {Math.floor(cameraZ)}
+      <div className="fixed bottom-10 right-10 text-right pointer-events-none z-40 mix-blend-difference">
+         <p className="text-white/40 font-cyber text-xs tracking-[0.2em]">
+           // VOID_DEPTH_MONITOR
          </p>
       </div>
 
