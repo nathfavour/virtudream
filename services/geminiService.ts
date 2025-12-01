@@ -1,7 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DreamMood, DreamResponse } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!ai) {
+    // @ts-ignore - handled by Vite define
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.warn("Gemini API Key is missing. Dream features will not work.");
+    }
+    ai = new GoogleGenAI({ apiKey: apiKey || "dummy_key" });
+  }
+  return ai;
+};
 
 // System instruction to make the AI behave like a "Dream Entity"
 const SYSTEM_INSTRUCTION = `
@@ -19,7 +31,7 @@ Provide a "visualPrompt": A description of a surreal, abstract, 3D sci-fi or dre
 
 export const consultTheDream = async (userInput: string): Promise<DreamResponse> => {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash",
       contents: userInput,
       config: {
@@ -62,7 +74,7 @@ export const consultTheDream = async (userInput: string): Promise<DreamResponse>
 
 export const manifestVision = async (prompt: string): Promise<string | null> => {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: {
         parts: [{ text: `A 3D rendered masterpiece, spatial design, VirtuWorld metaverse aesthetic: ${prompt}. Volumetric lighting, 8k resolution, unreal engine 5 style.` }]
