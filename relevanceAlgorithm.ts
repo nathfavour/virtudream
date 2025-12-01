@@ -40,18 +40,17 @@ export const generateRelevantEntity = (
 
   switch (biome) {
     case 'VOID':
-      // Denser Generation for VOID
-      if (r > 0.85) { 
+      // Very sparse text to avoid clutter
+      if (r > 0.98) { // Changed from 0.85 to 0.98 - RARE
         type = EntityType.WHISPER;
         const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
         content = pool[Math.floor(r * 100) % pool.length];
         scale = 2; 
       } else if (r > 0.5) {
-        // More flickers to fill the void
         type = EntityType.FLICKER; 
         scale = 0.5 + r * 2;
       } else {
-        type = EntityType.FLICKER; // Default
+        type = EntityType.FLICKER; 
       }
       break;
 
@@ -91,10 +90,10 @@ export const generateRelevantEntity = (
       break;
       
     case 'DATA_STREAM':
-      // Denser Matrix
+      // Denser Matrix but sparse text
       if (r > 0.8) {
         type = EntityType.WIDGET_INPUT; 
-      } else if (r > 0.75) { 
+      } else if (r > 0.95) { // Changed from 0.75 - Very RARE text
         type = EntityType.WHISPER;
         content = "01010101..."; 
       } else if (r > 0.3) {
