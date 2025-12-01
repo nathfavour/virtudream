@@ -145,9 +145,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <p className="text-white/30 font-cyber tracking-[0.5em] text-xs animate-bounce mt-12">
-            SCROLL TO ENTER THE VOID
-          </p>
         </div>
       </div>
 
