@@ -41,13 +41,23 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
       // Spawn a new particle for the typed character
       const portal = portalStateRef.current;
       
-      portal.targetX = window.innerWidth / 2;
-      portal.targetY = window.innerHeight / 2;
+      // Randomize portal position slightly or significantly?
+      // "Pop up randomly on the screen"
+      // We only move it if it's currently closed or mostly closed (re-opening)
+      // Otherwise it feels too jumpy while typing a sentence.
+      if (portal.openness < 0.1) {
+         portal.targetX = window.innerWidth * 0.2 + Math.random() * window.innerWidth * 0.6;
+         portal.targetY = window.innerHeight * 0.2 + Math.random() * window.innerHeight * 0.6;
+         
+         // Snap to new pos instantly if closed
+         portal.x = portal.targetX;
+         portal.y = portal.targetY;
+      }
+      
       portal.openness = 1;
 
       // PHYSICS: Spawn high-velocity sparks from the rim
-      // Instead of rectangles, we use simple lines/points
-      const sparkCount = 8;
+      const sparkCount = 12; // More initial sparks
       for(let i=0; i<sparkCount; i++) {
          const angle = Math.random() * Math.PI * 2;
          const velocity = 5 + Math.random() * 10;
@@ -101,19 +111,28 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
 
       const portal = portalStateRef.current;
       
-      portal.x += (portal.targetX - portal.x) * 0.1;
-      portal.y += (portal.targetY - portal.y) * 0.1;
+      // ELASTIC PHYSICS for Portal Position
+      // We want it to be springy when it moves to a new target
+      const springStrength = 0.1;
+      const friction = 0.8;
+      
+      // If we had velocity state, we could do real spring physics
+      // For now, simple lerp is okay but let's make it snappier
+      portal.x += (portal.targetX - portal.x) * 0.15;
+      portal.y += (portal.targetY - portal.y) * 0.15;
 
       // Snappy decay - closes fast when typing stops
-      portal.openness *= 0.9;
+      portal.openness *= 0.92;
       if (portal.openness < 0.001) portal.openness = 0;
 
       if (portal.openness > 0.001) {
-        const radius = 100 * portal.openness;
+        const radius = 120 * portal.openness;
+        const time = Date.now() * 0.005; // Spin speed
         
         // --- 1. THE VOID CIRCLE ---
         ctx.save();
         ctx.translate(portal.x, portal.y);
+        ctx.rotate(time * 2); // AGGRESSIVE SPIN of the whole structure
         
         // Pure black hole
         ctx.beginPath();
@@ -124,32 +143,32 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
         // --- 2. BLAZING RIM (Thin Sparks) ---
         // Emit new sparks if portal is open
         if (Math.random() > 0.1) {
-           for(let i=0; i<5; i++) {
+           for(let i=0; i<3; i++) {
              const angle = Math.random() * Math.PI * 2;
-             const speed = 2 + Math.random() * 4;
+             // Tangential velocity for spin effect
+             const speed = 5 + Math.random() * 5;
              rimSparks.push({
                x: Math.cos(angle) * radius,
                y: Math.sin(angle) * radius,
-               vx: Math.cos(angle) * speed,
-               vy: Math.sin(angle) * speed,
+               vx: Math.cos(angle) * speed - Math.sin(angle) * speed * 2, // Spin velocity
+               vy: Math.sin(angle) * speed + Math.cos(angle) * speed * 2,
                life: 1.0
              });
            }
         }
 
         // Render Sparks
-        ctx.globalCompositeOperation = 'lighter'; // Additive blending for "fire" look
+        ctx.globalCompositeOperation = 'lighter'; 
         ctx.strokeStyle = '#f59e0b'; // Amber core
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
 
         // Update and draw sparks
         for (let i = rimSparks.length - 1; i >= 0; i--) {
             const s = rimSparks[i];
             
-            // Move spark OUTWARD from rim
             s.x += s.vx;
             s.y += s.vy;
-            s.life -= 0.05;
+            s.life -= 0.08; // Faster decay
             
             if (s.life <= 0) {
               rimSparks.splice(i, 1);
@@ -159,20 +178,20 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
             // Draw thin line (streak)
             ctx.beginPath();
             ctx.moveTo(s.x, s.y);
-            // Trail calculation
-            ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2);
+            // Trail
+            ctx.lineTo(s.x - s.vx * 0.5, s.y - s.vy * 0.5);
             
             const alpha = s.life * portal.openness;
-            ctx.strokeStyle = `rgba(255, 180, 50, ${alpha})`;
+            ctx.strokeStyle = `rgba(255, 200, 50, ${alpha})`;
             ctx.stroke();
         }
 
-        // Inner Rim Glow (Clean thin circle)
+        // Inner Rim Glow
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(255, 200, 100, ${portal.openness})`;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 20;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 30;
         ctx.shadowColor = '#f59e0b';
         ctx.stroke();
 
@@ -180,29 +199,33 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
       }
 
       // --- 3. TEXT PHYSICS ---
-      ctx.globalCompositeOperation = 'source-over'; // Normal blending for text
+      ctx.globalCompositeOperation = 'source-over'; 
 
       particlesRef.current.forEach((p, index) => {
         // Physics: Explosive start, then drag
         const dx = portal.x - p.x;
         const dy = portal.y - p.y;
         
-        // Exponential Gravity: Weak far away, impossible to escape close up
         const dist = Math.sqrt(dx*dx + dy*dy);
-        const gravityStrength = 1000 / (dist * dist + 100); // 1/r^2 gravity approximation
+        const gravityStrength = 2000 / (dist * dist + 100); 
         
         p.velocity.x += dx * gravityStrength * 0.5;
         p.velocity.y += dy * gravityStrength * 0.5;
         
-        // Drag (Friction)
-        p.velocity.x *= 0.95;
-        p.velocity.y *= 0.95;
+        // Spin around portal center
+        // Tangential force
+        const angle = Math.atan2(dy, dx);
+        p.velocity.x += Math.cos(angle + Math.PI/2) * 2;
+        p.velocity.y += Math.sin(angle + Math.PI/2) * 2;
+
+        p.velocity.x *= 0.92;
+        p.velocity.y *= 0.92;
 
         p.x += p.velocity.x;
         p.y += p.velocity.y;
         
-        p.rotation += (p.velocity.x + p.velocity.y) * 0.02; // Spin based on speed
-        p.size *= 0.95; // Shrink
+        p.rotation += 0.1;
+        p.size *= 0.95;
         p.life -= 0.01;
 
         if (p.life <= 0 || p.size < 0.5) {
@@ -219,7 +242,6 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
         ctx.textBaseline = 'middle';
         ctx.fillStyle = p.color;
         
-        // Simple glow, no complex shapes
         ctx.shadowBlur = 10;
         ctx.shadowColor = p.color;
         ctx.fillText(p.char, 0, 0);

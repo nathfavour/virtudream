@@ -73,10 +73,16 @@ const App: React.FC = () => {
     let x = active ? (Math.random() - 0.5) * 1 : 0;
     let y = active ? (Math.random() - 0.5) * 1 : 0;
     let blur = 0;
+    let scale = 1;
 
     if (chaosLevel > 5) {
        x = (Math.random() - 0.5) * (chaosLevel * 0.2);
        y = (Math.random() - 0.5) * (chaosLevel * 0.2);
+    }
+    
+    // Elastic scaling
+    if (chaosLevel > 10) {
+       scale = 1 + Math.sin(Date.now() * 0.05) * 0.005 * chaosLevel; 
     }
     
     if (chaosLevel > 50) {
@@ -84,9 +90,10 @@ const App: React.FC = () => {
     }
     
     return {
-      transform: `translate(${x}px, ${y}px)`,
+      transform: `translate(${x}px, ${y}px) scale(${scale})`,
       filter: `blur(${blur}px)`,
-      transition: 'transform 0.05s linear, filter 0.1s ease'
+      transition: 'transform 0.05s linear, filter 0.1s ease',
+      transformOrigin: 'center center'
     };
   };
 
