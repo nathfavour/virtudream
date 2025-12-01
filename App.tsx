@@ -3,6 +3,7 @@ import LivingBackground from './components/LivingBackground';
 import GlobalInputHandler from './components/GlobalInputHandler';
 import EntityRenderer from './components/EntityRenderer';
 import LiquidCursor from './components/LiquidCursor';
+import PhysicsBubbles from './components/PhysicsBubbles';
 import { DreamMood, DreamFragment } from './types';
 import { WorldEntity, EntityType, WHISPER_DATA } from './worldTypes';
 import { consultTheDream, manifestVision } from './services/geminiService';
@@ -217,9 +218,7 @@ const App: React.FC = () => {
       
       {/* Background */}
       <div className="fixed inset-0 z-0 transition-colors duration-[2000ms]">
-         {/* Pass biome to background if we update LivingBackground props, or just use CSS classes */}
          <LivingBackground mood={currentMood} isDreaming={isLoading} />
-         {/* Biome Overlay Tint */}
          <div className={`absolute inset-0 opacity-20 pointer-events-none transition-colors duration-[3000ms] ${
             currentBiome === 'STAR_FIELD' ? 'bg-indigo-900' :
             currentBiome === 'NEBULA' ? 'bg-purple-900' :
@@ -227,6 +226,9 @@ const App: React.FC = () => {
             currentBiome === 'DATA_STREAM' ? 'bg-emerald-900' : 'bg-black'
          }`}></div>
       </div>
+
+      {/* Physics Overlay Layer - Bubbles falling/bouncing */}
+      <PhysicsBubbles />
 
       {/* 3D Perspective Container */}
       <div 

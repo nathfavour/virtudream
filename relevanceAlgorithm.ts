@@ -81,7 +81,7 @@ export const generateRelevantEntity = (
         type = EntityType.GALAXY; 
         scale = 10 + r * 10;
         hue = 200 + (r * 100); 
-      } else if (r > 0.95) {
+      } else if (r > 0.85) { // Frequent Portals in Nebula (was 0.95)
         type = EntityType.PORTAL;
         scale = 3 + r * 2;
       } else if (r > 0.4) {
@@ -108,16 +108,17 @@ export const generateRelevantEntity = (
       break;
 
     case 'ORGANIC':
-      // Blobs and Cells
+      // Denser Organic
       if (r > 0.8) {
         type = EntityType.BLOB;
         scale = 2 + r * 4;
         hue = (r * 100) % 100; 
       } else if (r > 0.2) { // High density particles
         type = EntityType.FLICKER;
-        scale = r * 3;
+        scale = r * 8; // Larger "spots"
       } else {
-        type = EntityType.FLICKER;
+        type = EntityType.BLOB; // More background blobs
+        scale = 0.5 + r;
       }
       break;
   }
@@ -128,11 +129,12 @@ export const generateRelevantEntity = (
   let x = (randomAt(z, 1, 1) - 0.5) * 150 + 50;
   let y = (randomAt(1, z, 1) - 0.5) * 150 + 50;
   
-  if (r > 0.92) {
+  if (r > 0.92 || type === EntityType.PORTAL) { // Force Portals to be center-ish
     // Center alignment for potential "world entry"
-    x = 50 + (randomAt(z,z,2) - 0.5) * 10; // Tight cluster near center
-    y = 50 + (randomAt(z,z,3) - 0.5) * 10;
-    scale *= 2; // Make it big enough to enter
+    x = 50 + (randomAt(z,z,2) - 0.5) * 5; // Very tight cluster near center
+    y = 50 + (randomAt(z,z,3) - 0.5) * 5;
+    if (type === EntityType.PORTAL) scale = 5; // Ensure portals are massive enough to fly through
+    else scale *= 2; 
   }
 
   return {

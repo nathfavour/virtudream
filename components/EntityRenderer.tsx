@@ -88,31 +88,69 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
       );
 
     case EntityType.PORTAL:
+      // A "Sub-Scene" Portal: A window into another world
+      // It must look like a complete miniature environment
       return (
         <div style={style} className="pointer-events-none group">
-           <div className="w-96 h-96 rounded-full border-4 border-white/80 shadow-[0_0_100px_rgba(255,255,255,0.8)] overflow-hidden animate-pulse-slow relative">
-              <div className="absolute inset-0 bg-black opacity-90"></div>
-              {/* Internal swirl - High Detail */}
-              <div className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0deg,#ff00ff_180deg,transparent_360deg)] animate-spin-fast opacity-80 mix-blend-screen"></div>
-              {/* Inner Event Horizon */}
-              <div className="absolute inset-[10%] bg-black rounded-full border border-purple-500/50"></div>
+           {/* The Container / Window */}
+           <div className="w-[800px] h-[800px] rounded-full border-[20px] border-double border-white/20 shadow-[0_0_200px_rgba(255,255,255,0.4)] overflow-hidden relative animate-spin-very-slow backdrop-blur-sm">
+              
+              {/* The "World" Inside - Distinct Background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-black opacity-90"></div>
+              
+              {/* Inner Scene Elements (The "Website within a website" feel) */}
+              <div className="absolute inset-0 animate-pulse-slow">
+                 {/* Mini Suns */}
+                 <div className="absolute top-[20%] left-[30%] w-32 h-32 bg-yellow-300 rounded-full blur-xl animate-float"></div>
+                 <div className="absolute bottom-[20%] right-[30%] w-48 h-48 bg-pink-500 rounded-full blur-2xl animate-float" style={{ animationDelay: '1s' }}></div>
+                 
+                 {/* Mini Grid/Structure */}
+                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
+                 
+                 {/* Swirling Vapors */}
+                 <div className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0deg,cyan_90deg,transparent_180deg)] animate-spin-slow opacity-30 mix-blend-screen"></div>
+              </div>
+
+              {/* The Rim/Frame */}
+              <div className="absolute inset-0 rounded-full border-[40px] border-white/5 opacity-50"></div>
            </div>
         </div>
       );
 
     case EntityType.BLOB:
+      // Formless Blob Logic:
+      // Using SVG filter for turbulent displacement would be ideal but complex to inject here per element.
+      // Instead, we use multiple layered organic shapes with rapid independent animations to simulate "roiling" formless fluid.
+      
+      const seed = entity.id.charCodeAt(0) % 5;
+      
       return (
         <div style={style} className="pointer-events-none">
-           {/* CSS Morphing Blob - Randomized colors */}
-           <div 
-             className="w-64 h-64 opacity-60 backdrop-blur-md animate-blob mix-blend-screen"
-             style={{
-               background: `linear-gradient(${Math.random() * 360}deg, cyan, purple, pink)`,
-               borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%',
-               transition: 'border-radius 5s ease-in-out',
-               animationDelay: `${Math.random() * 2}s`
-             }}
-           ></div>
+           <div className="relative w-96 h-96 opacity-70 mix-blend-screen">
+             {/* Core turbulence */}
+             <div 
+               className="absolute inset-0 bg-gradient-to-tr from-cyan-400 to-purple-500 blur-xl animate-blob" 
+               style={{ 
+                  borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%',
+                  animationDuration: '3s',
+                  transform: `rotate(${Math.random()*360}deg)`
+               }}
+             />
+             {/* Secondary roiling layer */}
+             <div 
+               className="absolute inset-4 bg-gradient-to-bl from-pink-500 to-transparent blur-lg animate-blob"
+               style={{ 
+                  borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%',
+                  animationDuration: '4s', 
+                  animationDirection: 'reverse',
+                  opacity: 0.8
+               }}
+             />
+             {/* "Defects" - Sharp erratic sparks inside */}
+             <div className="absolute inset-0 animate-spin-slow opacity-50">
+                <div className="w-full h-full border-t-2 border-white/40 rounded-full skew-x-12 blur-sm"></div>
+             </div>
+           </div>
         </div>
       );
 
