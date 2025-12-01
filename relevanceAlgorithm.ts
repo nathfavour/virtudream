@@ -40,76 +40,84 @@ export const generateRelevantEntity = (
 
   switch (biome) {
     case 'VOID':
-      // Balanced text density
-      if (r > 0.92) { 
+      // ZERO EMPTY SPACE RULE
+      // Ensure something is ALWAYS generated
+      if (r > 0.94) { 
         type = EntityType.WHISPER;
         const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
         content = pool[Math.floor(r * 100) % pool.length];
-        scale = 2; 
+        scale = 2.5; 
+      } else if (r > 0.6) {
+        // High density background blobs for "waves" feeling
+        type = EntityType.BLOB;
+        scale = 0.5 + r * 1.5;
+        hue = (z * 0.1) % 360; // Gradient shift based on depth
       } else {
-        // ALWAYS fill void with particles to prevent "empty color page"
-        // High variance in x/y to create "spraying" effect
+        // High density particles
         type = EntityType.FLICKER; 
-        scale = 0.5 + r * 5; // Varied sizes up to 5.5x
+        scale = 0.5 + r * 4; 
       }
       break;
 
     case 'STAR_FIELD':
-      // Denser Star Field
-      if (r > 0.95) { // Suns
+      if (r > 0.96) { 
         type = EntityType.GALAXY; 
-        scale = 5 + r * 5; 
+        scale = 6 + r * 5; 
         hue = (r * 360) % 360;
         detailLevel = 2; 
-      } else if (r > 0.8) {
+      } else if (r > 0.7) {
         type = EntityType.BLOB; 
         hue = (r * 360) % 360;
+        scale = 1 + r * 2;
       } else {
-        type = EntityType.FLICKER; // Default to stars
+        type = EntityType.FLICKER; 
         scale = 0.5 + r * 3;
       }
       break;
 
     case 'NEBULA':
-      // Denser Nebula
-      if (r > 0.9) { 
+      if (r > 0.92) { 
         type = EntityType.GALAXY; 
-        scale = 10 + r * 10;
+        scale = 12 + r * 10;
         hue = 200 + (r * 100); 
-      } else if (r > 0.85) { 
+      } else if (r > 0.88) { 
         type = EntityType.PORTAL;
-        scale = 3 + r * 2;
+        scale = 4 + r * 2;
+      } else if (r > 0.5) {
+        // Colored Gas Clouds (Blobs)
+        type = EntityType.BLOB;
+        scale = 5 + r * 5; // Large clouds
+        hue = 240 + (r * 60); 
       } else {
-        type = EntityType.FLICKER; // Space dust
-        scale = r * 4;
+        type = EntityType.FLICKER; 
+        scale = r * 3;
       }
       break;
       
     case 'DATA_STREAM':
-      // Denser Matrix
-      if (r > 0.8) {
+      if (r > 0.85) {
         type = EntityType.WIDGET_INPUT; 
-      } else if (r > 0.85) { // Moderate text (was 0.95)
+      } else if (r > 0.9) { 
         type = EntityType.WHISPER;
         content = "01010101..."; 
+      } else if (r > 0.4) {
+        type = EntityType.FLICKER; 
+        scale = 1 + r * 3;
       } else {
-        type = EntityType.FLICKER; // High density bits
-        scale = 1 + r * 2;
+         // Background data rain
+        type = EntityType.FLICKER;
+        scale = 0.5;
       }
       break;
 
     case 'ORGANIC':
-      // Denser Organic
-      if (r > 0.8) {
+      if (r > 0.6) { // frequent blobs
         type = EntityType.BLOB;
-        scale = 2 + r * 4;
-        hue = (r * 100) % 100; 
-      } else if (r > 0.2) { // High density particles
-        type = EntityType.FLICKER;
-        scale = r * 8; // Larger "spots"
+        scale = 2 + r * 6;
+        hue = (z * 0.2) % 360; // Rainbow shift
       } else {
-        type = EntityType.BLOB; // More background blobs
-        scale = 0.5 + r;
+        type = EntityType.FLICKER; 
+        scale = r * 8; // Large spots
       }
       break;
   }

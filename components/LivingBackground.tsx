@@ -162,7 +162,43 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
+      // --- ADD WAVE OVERLAY ---
+      // Simulating "Background Waves" that are always present
+      const waveCount = 3;
+      for (let w = 0; w < waveCount; w++) {
+         const offset = (time * 0.2 + w) * Math.PI;
+         ctx.beginPath();
+         // Create a wave path
+         ctx.moveTo(0, height);
+         for(let px = 0; px <= width; px += 50) {
+            // Wave function: mixing sine waves for organic feel
+            const py = height/2 + 
+                       Math.sin(px * 0.002 + offset) * 100 + 
+                       Math.sin(px * 0.01 - time) * 50 +
+                       (w * 100); 
+            ctx.lineTo(px, py);
+         }
+         ctx.lineTo(width, height);
+         ctx.lineTo(0, height);
+         ctx.fillStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.03)`;
+         ctx.fill();
+         
+         // Wave Highlight Line
+         ctx.beginPath();
+         for(let px = 0; px <= width; px += 50) {
+            const py = height/2 + 
+                       Math.sin(px * 0.002 + offset) * 100 + 
+                       Math.sin(px * 0.01 - time) * 50 +
+                       (w * 100); 
+            if (px === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+         }
+         ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.1)`;
+         ctx.stroke();
+      }
+
       // Sort particles by Z so distant ones draw first (simple depth buffering)
+
       particlesRef.current.sort((a, b) => b.z - a.z);
 
       particlesRef.current.forEach(p => {
