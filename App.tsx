@@ -42,29 +42,50 @@ const App: React.FC = () => {
     let content = undefined;
     let hue = 0;
 
-    if (r > 0.9) {
-      type = EntityType.PORTAL;
-      scale = 2 + Math.random();
-    } else if (r > 0.85) {
-      type = EntityType.BLOB;
-      scale = 1.5 + Math.random();
-    } else if (r > 0.7) {
-      type = EntityType.WHISPER;
-      content = WHISPER_DATA[Math.floor(Math.random() * WHISPER_DATA.length)];
-      scale = 1.5 + Math.random(); // Bigger text
-    } else if (r > 0.5) {
-      type = EntityType.GALAXY;
-      hue = Math.random() * 360;
-      scale = 4 + Math.random() * 4;
-    } else if (r > 0.95) {
-      type = EntityType.WIDGET_INPUT;
+    // Use modulo on Z to create "zones" or biomes so it's not totally random soup
+    // Every 5000 units, the theme changes slightly
+    const zone = Math.floor(z / 5000) % 3;
+
+    if (zone === 0) {
+      // Zone 0: The Whisper Void (Mostly Text + Flickers)
+      if (r > 0.7) {
+        type = EntityType.WHISPER;
+        content = WHISPER_DATA[Math.floor(Math.random() * WHISPER_DATA.length)];
+        scale = 1 + Math.random();
+      } else if (r > 0.95) {
+        type = EntityType.WIDGET_INPUT;
+      }
+    } else if (zone === 1) {
+      // Zone 1: The Nebula (Galaxies + Portals)
+      if (r > 0.8) {
+        type = EntityType.GALAXY;
+        hue = Math.random() * 360;
+        scale = 3 + Math.random() * 5;
+      } else if (r > 0.9) {
+        type = EntityType.PORTAL;
+        scale = 2 + Math.random();
+      }
+    } else {
+      // Zone 2: The Abstract (Blobs + Flickers)
+      if (r > 0.85) {
+        type = EntityType.BLOB;
+        scale = 1.5 + Math.random() * 2;
+      } else {
+        type = EntityType.FLICKER;
+      }
+    }
+
+    // Occasional rare crossover event
+    if (Math.random() > 0.98) {
+       type = EntityType.PORTAL;
+       scale = 5; // Massive portal
     }
 
     return {
       id: Math.random().toString(36).substr(2, 9),
       type,
-      x: (Math.random() - 0.5) * 120 + 50, 
-      y: (Math.random() - 0.5) * 120 + 50,
+      x: (Math.random() - 0.5) * 150 + 50, 
+      y: (Math.random() - 0.5) * 150 + 50,
       z: z,
       scale,
       content,

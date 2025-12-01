@@ -44,7 +44,14 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity }) => {
     case EntityType.FLICKER:
       return (
         <div style={style} className="pointer-events-none">
-           <div className="w-2 h-2 bg-white rounded-full shadow-[0_0_20px_white] animate-pulse" />
+           <div 
+             className="bg-white rounded-full shadow-[0_0_20px_white] animate-pulse" 
+             style={{ 
+               width: `${4 + Math.random() * 8}px`, 
+               height: `${4 + Math.random() * 8}px`,
+               opacity: 0.5 + Math.random() * 0.5
+             }}
+           />
         </div>
       );
 
@@ -62,12 +69,14 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity }) => {
     case EntityType.BLOB:
       return (
         <div style={style} className="pointer-events-none">
-           {/* CSS Morphing Blob */}
+           {/* CSS Morphing Blob - Randomized colors */}
            <div 
-             className="w-48 h-48 bg-gradient-to-br from-cyan-500/40 to-purple-600/40 backdrop-blur-sm animate-blob mix-blend-plus-lighter"
+             className="w-64 h-64 opacity-60 backdrop-blur-md animate-blob mix-blend-screen"
              style={{
+               background: `linear-gradient(${Math.random() * 360}deg, cyan, purple, pink)`,
                borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%',
-               transition: 'border-radius 5s ease-in-out'
+               transition: 'border-radius 5s ease-in-out',
+               animationDelay: `${Math.random() * 2}s`
              }}
            ></div>
         </div>
