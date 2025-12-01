@@ -6,12 +6,13 @@ import LiquidCursor from './components/LiquidCursor';
 import { DreamMood, DreamFragment } from './types';
 import { WorldEntity, EntityType, WHISPER_DATA } from './worldTypes';
 import { consultTheDream, manifestVision } from './services/geminiService';
-import { generateRelevantEntity } from './relevanceAlgorithm';
+import { generateRelevantEntity, getBiomeAtDepth } from './relevanceAlgorithm';
 
 const App: React.FC = () => {
   const [currentMood, setCurrentMood] = useState<DreamMood>(DreamMood.NEUTRAL);
   const [isLoading, setIsLoading] = useState(false);
   const [chaosLevel, setChaosLevel] = useState(0); 
+  const [currentBiome, setCurrentBiome] = useState<string>('VOID');
 
   // --- INFINITE WORLD STATE ---
   const cameraZRef = useRef(Math.random() * 5000 + 1000);
@@ -36,6 +37,21 @@ const App: React.FC = () => {
     lastGenZ.current = startZ;
   }, []);
 
+  // Mouse tracking for perspective steering
+  const mouseRef = useRef({ x: 0, y: 0 });
+  
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      // Normalize -1 to 1
+      mouseRef.current = {
+        x: (e.clientX / window.innerWidth) * 2 - 1,
+        y: (e.clientY / window.innerHeight) * 2 - 1
+      };
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   // Scroll / Zoom Loop (RequestAnimationFrame)
   useEffect(() => {
     let animId: number;
@@ -45,12 +61,17 @@ const App: React.FC = () => {
       const diff = targetCameraZRef.current - cameraZRef.current;
       const velocity = diff * 0.05;
       
-      // Apply momentum
       cameraZRef.current += velocity; 
+
+      // MOUSE STEERING
+      // Shift the vanishing point opposite to mouse to look around
+      const steerX = mouseRef.current.x * -500; // Pixels shift
+      const steerY = mouseRef.current.y * -500;
 
       // Update DOM directly for zero-latency scroll
       if (worldContainerRef.current) {
-        worldContainerRef.current.style.transform = `translateZ(${-cameraZRef.current}px)`;
+        // Combined Z-travel and XY-steering
+        worldContainerRef.current.style.transform = `translate3d(${steerX}px, ${steerY}px, ${-cameraZRef.current}px)`;
       }
 
       // Procedural Generation Check
@@ -58,8 +79,26 @@ const App: React.FC = () => {
       const horizon = currentZ + RENDER_DISTANCE;
       const rearHorizon = currentZ - 2000;
 
+      // Update global biome state for background
+      // Debounce or only update if changed
+      // getBiomeAtDepth is cheap
+      // We can use a ref to track and set state only on change
+      const newBiome = getBiomeAtDepth(currentZ);
+      // We can't access state 'currentBiome' inside this closure safely without deps or ref
+      // Just emit event or use another ref if we want to avoid re-renders loop
+      // But we can trigger a state update if needed.
+      // Let's rely on an effect outside the loop or update a Ref that LivingBackground reads?
+      // LivingBackground takes props. State update is needed.
+      // Only set if different (React handles this check but calling setState in loop is bad)
+      
+      // Let's store biome in a ref for the loop, and sync to state throttled?
+      // Actually, we can just update it in the interval check below
+      
       // Only trigger React state update if we crossed a threshold to avoid stutter
       if (Math.abs(currentZ - lastGenZ.current) > 500) {
+         // Update Biome UI
+         setCurrentBiome(newBiome);
+
          setEntities(prev => {
             const next = [...prev];
             const filtered = next.filter(e => e.z > rearHorizon);
@@ -177,8 +216,16 @@ const App: React.FC = () => {
       <LiquidCursor />
       
       {/* Background */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 transition-colors duration-[2000ms]">
+         {/* Pass biome to background if we update LivingBackground props, or just use CSS classes */}
          <LivingBackground mood={currentMood} isDreaming={isLoading} />
+         {/* Biome Overlay Tint */}
+         <div className={`absolute inset-0 opacity-20 pointer-events-none transition-colors duration-[3000ms] ${
+            currentBiome === 'STAR_FIELD' ? 'bg-indigo-900' :
+            currentBiome === 'NEBULA' ? 'bg-purple-900' :
+            currentBiome === 'ORGANIC' ? 'bg-amber-900' :
+            currentBiome === 'DATA_STREAM' ? 'bg-emerald-900' : 'bg-black'
+         }`}></div>
       </div>
 
       {/* 3D Perspective Container */}
@@ -219,7 +266,7 @@ const App: React.FC = () => {
       {/* Depth Indicator */}
       <div className="fixed bottom-10 right-10 text-right pointer-events-none z-40 mix-blend-difference">
          <p className="text-white/40 font-cyber text-xs tracking-[0.2em]">
-           // VOID_DEPTH_MONITOR
+           SECTOR: {currentBiome} // Z: {Math.floor(cameraZRef.current)}
          </p>
       </div>
 

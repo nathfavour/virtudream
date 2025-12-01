@@ -40,61 +40,82 @@ export const generateRelevantEntity = (
 
   switch (biome) {
     case 'VOID':
-      // Text heavy, minimal lights
-      if (r > 0.6) {
+      // Denser Generation for VOID
+      if (r > 0.85) { 
         type = EntityType.WHISPER;
-        // Prioritize AI text if available
         const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
         content = pool[Math.floor(r * 100) % pool.length];
-        scale = 1 + r;
+        scale = 2; 
+      } else if (r > 0.5) {
+        // More flickers to fill the void
+        type = EntityType.FLICKER; 
+        scale = 0.5 + r * 2;
+      } else {
+        type = EntityType.FLICKER; // Default
+      }
+      break;
+
+    case 'STAR_FIELD':
+      // Denser Star Field
+      if (r > 0.95) { // Suns
+        type = EntityType.GALAXY; 
+        scale = 5 + r * 5; 
+        hue = (r * 360) % 360;
+        detailLevel = 2; 
+      } else if (r > 0.8) {
+        type = EntityType.BLOB; 
+        hue = (r * 360) % 360;
+      } else if (r > 0.3) {
+        type = EntityType.FLICKER; // Much more stars
+        scale = 0.5 + r;
       } else {
         type = EntityType.FLICKER;
       }
       break;
 
-    case 'STAR_FIELD':
-      // Suns and planets
-      if (r > 0.9) {
-        type = EntityType.GALAXY; // Acts as a "Sun" here
-        scale = 5 + r * 5; // Massive
-        hue = (r * 360) % 360;
-        detailLevel = 2; // Render as blazing sun
-      } else if (r > 0.5) {
-        type = EntityType.FLICKER; // Distant stars
-        scale = 0.5 + r;
-      } else {
-        type = EntityType.BLOB; // Planetary bodies
-        hue = (r * 360) % 360;
-      }
-      break;
-
     case 'NEBULA':
-      // Clouds and Portals
-      if (r > 0.8) {
-        type = EntityType.GALAXY; // Nebula clouds
+      // Denser Nebula
+      if (r > 0.9) { 
+        type = EntityType.GALAXY; 
         scale = 10 + r * 10;
-        hue = 200 + (r * 100); // Blues/Purples
+        hue = 200 + (r * 100); 
       } else if (r > 0.95) {
         type = EntityType.PORTAL;
         scale = 3 + r * 2;
+      } else if (r > 0.4) {
+        type = EntityType.FLICKER; // Space dust
+        scale = r * 2;
+      } else {
+        type = EntityType.FLICKER;
       }
       break;
       
     case 'DATA_STREAM':
-      // Matrix-like
-      if (r > 0.4) {
-        type = EntityType.WIDGET_INPUT; // Tech fragments
-      } else {
+      // Denser Matrix
+      if (r > 0.8) {
+        type = EntityType.WIDGET_INPUT; 
+      } else if (r > 0.75) { 
         type = EntityType.WHISPER;
         content = "01010101..."; 
+      } else if (r > 0.3) {
+        type = EntityType.FLICKER; // Data bits
+      } else {
+        type = EntityType.FLICKER;
       }
       break;
 
     case 'ORGANIC':
-      // Blobs and Cells
-      type = EntityType.BLOB;
-      scale = 2 + r * 4;
-      hue = (r * 100) % 100; // Reds/Oranges
+      // Denser Organic
+      if (r > 0.8) {
+        type = EntityType.BLOB;
+        scale = 2 + r * 4;
+        hue = (r * 100) % 100; 
+      } else if (r > 0.4) {
+        type = EntityType.FLICKER;
+        scale = r * 3;
+      } else {
+        type = EntityType.FLICKER;
+      }
       break;
   }
 
