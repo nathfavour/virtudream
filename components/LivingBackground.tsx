@@ -3,6 +3,7 @@ import { DreamMood } from '../types';
 
 interface LivingBackgroundProps {
   mood: DreamMood;
+  isDreaming?: boolean;
 }
 
 interface MoodConfig {
@@ -13,12 +14,13 @@ interface MoodConfig {
   spread: number; // How wide the tunnel is
 }
 
-const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
+const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = false }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Persistent state
   const particlesRef = useRef<any[]>([]);
   const moodRef = useRef(mood);
+  const isDreamingRef = useRef(isDreaming);
   const currentColorRef = useRef<MoodConfig>({ r: 100, g: 100, b: 120, speed: 2, spread: 1000 });
   
   // Interaction State
@@ -29,6 +31,10 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
   useEffect(() => {
     moodRef.current = mood;
   }, [mood]);
+
+  useEffect(() => {
+    isDreamingRef.current = isDreaming;
+  }, [isDreaming]);
 
   const getMoodConfig = (m: DreamMood): MoodConfig => {
     switch (m) {
@@ -52,7 +58,7 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
     let height = canvas.height = window.innerHeight;
     
     // Initialize 3D particles
-    const particleCount = 400;
+    const particleCount = 450;
     if (particlesRef.current.length === 0) {
       for(let i = 0; i < particleCount; i++) {
         particlesRef.current.push({
@@ -88,14 +94,24 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
 
     const animate = () => {
       const target = getMoodConfig(moodRef.current);
+      
+      // Dynamic override for Dreaming state
+      if (isDreamingRef.current) {
+        target.speed = 30; // Hyperspace speed
+        target.spread = 500; // Tunnel narrows focus
+        // Jitter camera to simulate processing turbulence
+        cameraRef.current.x += (Math.random() - 0.5) * 0.005;
+        cameraRef.current.y += (Math.random() - 0.5) * 0.005;
+      }
+
       const current = currentColorRef.current;
 
       // Smooth interpolation for physics/colors
-      const f = 0.02;
+      const f = 0.03;
       current.r = lerp(current.r, target.r, f);
       current.g = lerp(current.g, target.g, f);
       current.b = lerp(current.b, target.b, f);
-      current.speed = lerp(current.speed, target.speed, f);
+      current.speed = lerp(current.speed, target.speed, isDreamingRef.current ? 0.05 : f);
       current.spread = lerp(current.spread, target.spread, f);
 
       // Smooth Camera/Parallax movement
@@ -111,13 +127,17 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
       const vpX = (width / 2) - (cameraRef.current.x * width * 0.25);
       const vpY = (height / 2) - (cameraRef.current.y * height * 0.25);
 
+      // Calculate mouse pixel position for interaction
+      const mousePixelX = (mouseRef.current.x + 1) / 2 * width;
+      const mousePixelY = (mouseRef.current.y + 1) / 2 * height;
+
       // Create a deep, dark version of the current mood color for the background void
-      const bgR = Math.floor(current.r * 0.08); 
-      const bgG = Math.floor(current.g * 0.08); 
-      const bgB = Math.floor(current.b * 0.08); 
+      const bgR = Math.floor(current.r * 0.05); 
+      const bgG = Math.floor(current.g * 0.05); 
+      const bgB = Math.floor(current.b * 0.05); 
 
       // Fade trail with tinted void
-      ctx.fillStyle = `rgba(${bgR}, ${bgG}, ${bgB}, 0.25)`;
+      ctx.fillStyle = `rgba(${bgR}, ${bgG}, ${bgB}, 0.3)`;
       ctx.fillRect(0, 0, width, height);
 
       // Sort particles by Z so distant ones draw first (simple depth buffering)
@@ -144,20 +164,36 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood }) => {
         const y2d = p.y * scale + vpY;
         const size = Math.max(0.1, p.size * scale * 3);
 
-        // Draw
+        // Draw Particle
         const alpha = Math.min(1, (2000 - p.z) / 1000); // Fade in as they get closer
         ctx.fillStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${alpha})`;
         ctx.beginPath();
         ctx.arc(x2d, y2d, size, 0, Math.PI * 2);
         ctx.fill();
         
-        // Optional: Connection lines for "constellation" feel if close enough
-        // Connect to the Dynamic Vanishing Point for speed/warp effect
-        if (scale > 0.8) { 
-            ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.05)`;
+        // INTERACTIVE: Connect to Mouse (Tactile Net)
+        // If particle is close to the mouse cursor on 2D plane
+        const dx = x2d - mousePixelX;
+        const dy = y2d - mousePixelY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const connectionThreshold = 150;
+
+        if (dist < connectionThreshold && scale > 0.5) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${(1 - dist/connectionThreshold) * 0.5})`;
+          ctx.lineWidth = 1;
+          ctx.moveTo(mousePixelX, mousePixelY);
+          ctx.lineTo(x2d, y2d);
+          ctx.stroke();
+        }
+
+        // INTERACTIVE: Connect to Vanishing Point (Warp Lines)
+        // Only draw these if fast or clicked
+        if (totalSpeed > 10 && scale > 0.8) { 
+            ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.1)`;
             ctx.beginPath();
             ctx.moveTo(x2d, y2d);
-            ctx.lineTo(vpX, vpY); // Line to vanishing center
+            ctx.lineTo(vpX, vpY);
             ctx.stroke();
         }
       });

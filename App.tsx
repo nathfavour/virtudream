@@ -49,8 +49,8 @@ const App: React.FC = () => {
 
   return (
     <main className="relative min-h-screen w-full flex flex-col items-center overflow-hidden perspective-container">
-      {/* 3D Warp Background */}
-      <LivingBackground mood={currentMood} />
+      {/* 3D Warp Background - now reacts to dreaming state */}
+      <LivingBackground mood={currentMood} isDreaming={isLoading} />
 
       {/* Main Content with 3D Preserves */}
       <div className="relative z-10 w-full max-w-5xl px-6 py-12 flex flex-col min-h-screen transform-style-3d">
