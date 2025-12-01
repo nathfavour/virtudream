@@ -41,32 +41,33 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
       // Spawn a new particle for the typed character
       const portal = portalStateRef.current;
       
-      // Randomize portal position slightly for "appearing randomly" but keep relatively central
-      // Or move portal towards the typing? Let's keep it somewhat centered but jittery
-      portal.targetX = window.innerWidth / 2 + (Math.random() - 0.5) * 400;
-      portal.targetY = window.innerHeight / 2 + (Math.random() - 0.5) * 200;
+      // Keep portal centered for the Dr. Strange effect - it should open in the center
+      // or maybe slightly offset if multiple chars come in fast?
+      // Let's keep it dead center for maximum drama
+      portal.targetX = window.innerWidth / 2;
+      portal.targetY = window.innerHeight / 2;
+
+      // Reset decay so it snaps open and stays open while typing
+      portal.openness = 1;
 
       // Burst of particles
       const colorPalette = ['#e879f9', '#22d3ee', '#facc15', '#f87171']; // Purple, Cyan, Gold, Red
       const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
 
       particlesRef.current.push({
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         x: portal.x, // Start at portal center
         y: portal.y,
         char: invertChar(inputChar),
-        size: 40 + Math.random() * 20,
+        size: 60 + Math.random() * 40, // Larger initial size
         rotation: Math.random() * Math.PI * 2,
         color: color,
         life: 1.0,
         velocity: {
-          x: (Math.random() - 0.5) * 5, // Explode outward initially
-          y: (Math.random() - 0.5) * 5
+          x: (Math.random() - 0.5) * 15, // Faster explosion
+          y: (Math.random() - 0.5) * 15
         }
       });
-      
-      // Snap open portal
-      portalStateRef.current.openness = 1;
     }
   }, [inputChar, isActive]);
 
@@ -90,56 +91,65 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
 
       const portal = portalStateRef.current;
       
-      // Smoothly move portal
+      // Smoothly move portal (less jittery now)
       portal.x += (portal.targetX - portal.x) * 0.1;
       portal.y += (portal.targetY - portal.y) * 0.1;
 
-      // Decay openness
-      portal.openness *= 0.95;
+      // Slower decay so it stays visible longer
+      portal.openness *= 0.96;
       if (portal.openness < 0.01) portal.openness = 0;
 
       // Draw Portal (The Void Mouth)
       if (portal.openness > 0.01) {
-        const radius = 60 * portal.openness;
+        // Larger radius for dramatic effect
+        const radius = 120 * portal.openness;
         
         // 1. The Void Hole (Vanishing Point)
         ctx.save();
         ctx.translate(portal.x, portal.y);
+        
+        // Outer Glow
+        ctx.shadowBlur = 50 * portal.openness;
+        ctx.shadowColor = '#9333ea'; // Purple glow
+        
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.fillStyle = '#000000';
         ctx.fill();
+        ctx.shadowBlur = 0; // Reset
 
-        // 2. The Rotating Sparkly Mosaic Lips
-        const time = Date.now() * 0.005;
-        const segmentCount = 12;
+        // 2. The Rotating Sparkly Mosaic Lips (Dr Strange Style)
+        const time = Date.now() * 0.002;
+        const segmentCount = 24; // More segments
         
-        ctx.rotate(time); // Spin the whole ring
+        ctx.rotate(time); 
         
         for (let i = 0; i < segmentCount; i++) {
           const angle = (i / segmentCount) * Math.PI * 2;
-          const x = Math.cos(angle) * radius;
-          const y = Math.sin(angle) * radius;
+          // Spiral offset
+          const spiralOffset = Math.sin(time * 5 + i) * 10;
+          const x = Math.cos(angle) * (radius + spiralOffset);
+          const y = Math.sin(angle) * (radius + spiralOffset);
           
           ctx.save();
           ctx.translate(x, y);
-          ctx.rotate(angle + time * 2); // Spin individual shards
+          ctx.rotate(angle + time * 3); 
           
-          // Shard Colors (Sparkling)
-          const hue = (time * 50 + i * 30) % 360;
-          ctx.fillStyle = `hsla(${hue}, 80%, 60%, ${portal.openness})`;
+          // Shard Colors (Sparkling Gold/Fire/Magic)
+          const hue = (time * 100 + i * 15) % 60 + 10; // Gold/Orange spectrum
+          ctx.fillStyle = `hsla(${hue}, 100%, 60%, ${portal.openness})`;
           
-          // Draw Shard (Diamond shape)
+          // Draw Shard (Runic shape)
           ctx.beginPath();
-          ctx.moveTo(0, -10);
-          ctx.lineTo(10, 0);
-          ctx.lineTo(0, 10);
-          ctx.lineTo(-10, 0);
+          ctx.moveTo(0, -15);
+          ctx.lineTo(8, 0);
+          ctx.lineTo(0, 15);
+          ctx.lineTo(-8, 0);
           ctx.fill();
           
-          // Add Glow
-          ctx.shadowBlur = 15;
-          ctx.shadowColor = `hsla(${hue}, 80%, 60%, 1)`;
+          // Add Intense Glow
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = `hsla(${hue}, 100%, 50%, 1)`;
           ctx.stroke();
           
           ctx.restore();
@@ -152,22 +162,21 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
         // Physics: Sucked back into portal
         const dx = portal.x - p.x;
         const dy = portal.y - p.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
         
-        // Attraction force increases as life decreases
-        const force = (1 - p.life) * 0.5; 
-        p.velocity.x += dx * 0.05 * force;
-        p.velocity.y += dy * 0.05 * force;
+        // Stronger gravity as it gets closer
+        const force = (1.5 - p.life) * 0.8; 
+        p.velocity.x += dx * 0.08 * force;
+        p.velocity.y += dy * 0.08 * force;
         
         p.x += p.velocity.x;
         p.y += p.velocity.y;
         
-        // Rotate due to "friction of motion"
-        p.rotation += 0.1;
+        // Rotate faster as it enters the void
+        p.rotation += 0.2;
         
         // Shrink into distance
-        p.size *= 0.96;
-        p.life -= 0.01;
+        p.size *= 0.95;
+        p.life -= 0.015;
 
         if (p.life <= 0 || p.size < 0.5) {
           particlesRef.current.splice(index, 1);
@@ -177,16 +186,15 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rotation);
-        ctx.scale(p.size / 20, p.size / 20); // Scale based on size
+        // Simulated 3D tumble
+        const scaleX = Math.cos(p.rotation); 
+        ctx.scale(p.size / 20 * scaleX, p.size / 20); 
         
-        // Inverted Rendering (Upside down)
-        ctx.scale(1, -1); 
-        
-        ctx.font = 'bold 40px "Courier New"';
+        ctx.font = 'bold 50px "Cinzel"'; // More mystical font
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = p.color;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 30;
         ctx.shadowColor = p.color;
         ctx.fillText(p.char, 0, 0);
         
