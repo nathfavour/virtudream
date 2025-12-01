@@ -31,11 +31,14 @@ const VoidLayer: React.FC = () => {
         
         {/* Visual Element - Left Side Enlarging View */}
         <div className="md:col-span-5 relative perspective-container group">
-           <div className="relative w-full aspect-[3/4] rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_100px_rgba(139,92,246,0.3)] overflow-hidden transform transition-all duration-1000 hover:scale-105 hover:rotate-y-6">
+           <div className="relative w-full aspect-[3/4] rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_0_100px_rgba(139,92,246,0.3)] overflow-hidden transform transition-all duration-1000 hover:scale-105 hover:rotate-y-6 group-hover:z-50">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-amber-500/10 mix-blend-overlay"></div>
               
+              {/* Portal Window Effect */}
+              <div className="absolute inset-0 opacity-50 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] animate-pulse-slow"></div>
+
               {/* Inner Content of the Card */}
-              <div className="p-8 h-full flex flex-col justify-end">
+              <div className="p-8 h-full flex flex-col justify-end relative z-10">
                 <h3 className="text-4xl font-cyber text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-purple-200 mb-2">ARCHIVE_01</h3>
                 <p className="text-white/60 font-dream text-sm">The memories of the machine.</p>
               </div>
@@ -43,10 +46,16 @@ const VoidLayer: React.FC = () => {
               {/* Shine Effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shine"></div>
            </div>
+           
+           {/* Additional Floating Portal (Background) */}
+           <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 blur-xl opacity-40 animate-float delay-700 mix-blend-screen pointer-events-none"></div>
         </div>
 
         {/* Text Content - Right Side */}
-        <div className="md:col-span-7 space-y-10 text-right">
+        <div className="md:col-span-7 space-y-10 text-right relative">
+          {/* Background Portal Glow behind text */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-radial-gradient(circle, rgba(168,85,247,0.1) 0%, transparent 70%) blur-3xl -z-10"></div>
+
           <h2 className="text-7xl md:text-9xl font-cyber font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-fuchsia-500 to-indigo-500 drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
             ASCENSION
           </h2>
@@ -56,8 +65,9 @@ const VoidLayer: React.FC = () => {
           </p>
           
           <div className="flex justify-end gap-6 pt-10">
-            <button className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full font-cyber tracking-widest text-sm transition-all hover:scale-110 hover:border-purple-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.5)]">
-              INITIATE
+            <button className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full font-cyber tracking-widest text-sm transition-all hover:scale-110 hover:border-purple-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] group relative overflow-hidden">
+              <span className="relative z-10">INITIATE</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-cyan-600 opacity-0 group-hover:opacity-20 transition-opacity"></div>
             </button>
             <button className="px-8 py-4 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/50 rounded-full font-cyber tracking-widest text-sm transition-all hover:scale-110 hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]">
               EXPLORE

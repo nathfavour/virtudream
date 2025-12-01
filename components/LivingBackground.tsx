@@ -131,13 +131,35 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
       const mousePixelX = (mouseRef.current.x + 1) / 2 * width;
       const mousePixelY = (mouseRef.current.y + 1) / 2 * height;
 
-      // Create a deep, dark version of the current mood color for the background void
-      const bgR = Math.floor(current.r * 0.05); 
-      const bgG = Math.floor(current.g * 0.05); 
-      const bgB = Math.floor(current.b * 0.05); 
+      // --- BREATHING BACKGROUND LOGIC ---
+      // Use time to drive organic pulses
+      const time = Date.now() * 0.001;
+      
+      // Calculate dynamic gradient positions based on mouse and time
+      // The "Light" follows the mouse slightly
+      const gradX = mousePixelX;
+      const gradY = mousePixelY;
+      
+      // Dynamic radius based on mood intensity or speed
+      const radius = Math.max(width, height) * (0.6 + Math.sin(time) * 0.1); 
 
-      // Fade trail with tinted void
-      ctx.fillStyle = `rgba(${bgR}, ${bgG}, ${bgB}, 0.3)`;
+      // Create a complex gradient
+      const gradient = ctx.createRadialGradient(gradX, gradY, 0, width/2, height/2, radius);
+      
+      // Center color (Mouse): Tinted by current mood, but bright/alive
+      gradient.addColorStop(0, `rgba(${current.r}, ${current.g}, ${current.b}, 0.15)`);
+      
+      // Mid color: Deep shifting hues
+      const shiftR = Math.sin(time * 0.5) * 50 + current.r * 0.5;
+      const shiftB = Math.cos(time * 0.5) * 50 + current.b * 0.8;
+      gradient.addColorStop(0.4, `rgba(${shiftR}, ${current.g * 0.5}, ${shiftB}, 0.08)`);
+      
+      // Outer edge: Fades to black (approx 60% black as requested)
+      gradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.9)');
+      gradient.addColorStop(1, '#000000');
+
+      // Clear with the breathing gradient instead of solid color
+      ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
       // Sort particles by Z so distant ones draw first (simple depth buffering)
