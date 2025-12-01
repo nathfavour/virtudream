@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import LivingBackground from './components/LivingBackground';
 import DreamLayer from './components/DreamLayer';
 import VoidLayer from './components/VoidLayer';
-import BlackHoleTransition from './components/BlackHoleTransition';
 import { DreamMood, DreamFragment } from './types';
 import { consultTheDream, manifestVision } from './services/geminiService';
 
@@ -11,45 +10,25 @@ const App: React.FC = () => {
   const [fragments, setFragments] = useState<DreamFragment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
-  
-  // Ref for the container to measure scroll
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  // We need to manage scroll manually to create the "layers" effect
+  // Constants for scroll mapping
+  const TOTAL_HEIGHT = '300vh'; // Total scrollable height
+  
   useEffect(() => {
     const handleScroll = () => {
-      // Logic: 
-      // 0 - 100vh: DreamLayer (Normal scroll)
-      // 100vh - 150vh: Black Hole Transition (Engulfing)
-      // > 150vh: VoidLayer
-      
       const scrollY = window.scrollY;
       const viewportHeight = window.innerHeight;
+      const totalDocHeight = document.documentElement.scrollHeight - viewportHeight;
       
-      // Calculate transition progress
-      // Start transition after scrolling past the first screen + some content
-      // Let's say the trigger point is when we scroll past the main content
-      // For simplicity in this demo, let's trigger it based on total document height vs viewport
+      // Calculate normalized progress (0 to 1)
+      let progress = scrollY / totalDocHeight;
+      if (progress < 0) progress = 0;
+      if (progress > 1) progress = 1;
       
-      const transitionStart = document.body.scrollHeight - viewportHeight * 2; // Rough estimate, needs refinement based on content
-      
-      // Better approach: Fixed ranges for this specific effect
-      // Let's make the "Black Hole" a section in the middle
-      
-      const transitionZoneStart = viewportHeight * 1.5; 
-      const transitionZoneEnd = viewportHeight * 2.5;
-      
-      if (scrollY > transitionZoneStart && scrollY < transitionZoneEnd) {
-        const progress = (scrollY - transitionZoneStart) / (transitionZoneEnd - transitionZoneStart);
-        setScrollProgress(progress);
-      } else if (scrollY <= transitionZoneStart) {
-        setScrollProgress(0);
-      } else {
-        setScrollProgress(1);
-      }
+      setScrollProgress(progress);
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -83,41 +62,103 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
-  return (
-    <main className="relative min-h-[300vh] w-full bg-black">
-      {/* 3D Warp Background - Visible mostly in first layer */}
-      <div className={`fixed inset-0 z-0 transition-opacity duration-1000 ${scrollProgress > 0.8 ? 'opacity-0' : 'opacity-100'}`}>
-         <LivingBackground mood={currentMood} isDreaming={isLoading} />
-      </div>
+  // Calculate the clip-path radius based on scroll progress
+  // We want it to start small and expand to cover the screen
+  // Transition happens roughly between 0.3 and 0.8 progress
+  const getClipPath = () => {
+    // Map progress 0.3 -> 0.8 to Radius 0% -> 150%
+    const start = 0.2;
+    const end = 0.8;
+    
+    let percentage = 0;
+    if (scrollProgress > start) {
+      percentage = ((scrollProgress - start) / (end - start)) * 150;
+    }
+    
+    return `circle(${percentage}% at 50% 50%)`;
+  };
 
-      {/* Layer 1: Dream Interface */}
-      {/* We wrap it in a container that fades out as blackhole grows */}
-      <div 
-        className="relative z-10 transition-opacity duration-500"
-        style={{ opacity: 1 - scrollProgress * 2 }} // Fade out faster
-      >
+  // Dynamic Opacity for the "Black Hole" Rim
+  const getRimOpacity = () => {
+    const start = 0.2;
+    const end = 0.8;
+    if (scrollProgress < start || scrollProgress > end) return 0;
+    
+    // Fade in then out
+    const mid = (start + end) / 2;
+    if (scrollProgress < mid) {
+       return (scrollProgress - start) / (mid - start);
+    } else {
+       return 1 - ((scrollProgress - mid) / (end - mid));
+    }
+  };
+
+  return (
+    <main className="relative w-full bg-black" style={{ height: TOTAL_HEIGHT }}>
+      
+      {/* 
+        LAYER 1: The Dream Interface (Base Layer) 
+        Fixed position, always visible underneath until fully covered
+      */}
+      <div className="fixed inset-0 z-0">
+        <LivingBackground mood={currentMood} isDreaming={isLoading} />
         <DreamLayer 
           fragments={fragments} 
           isLoading={isLoading} 
           onWhisper={handleWhisper} 
         />
+        
+        {/* Scroll Prompt at bottom of first layer */}
+        <div 
+          className="fixed bottom-10 left-0 w-full text-center pointer-events-none transition-opacity duration-500"
+          style={{ opacity: 1 - scrollProgress * 3 }}
+        >
+          <p className="text-white/30 font-cyber tracking-[0.5em] text-xs animate-bounce">
+            SCROLL TO ENTER THE VOID
+          </p>
+        </div>
       </div>
 
-      {/* Spacer for Transition */}
-      <div className="h-[100vh] flex items-center justify-center relative z-20">
-         <p className="text-white/20 font-cyber tracking-[1em] animate-pulse">APPROACHING EVENT HORIZON</p>
+      {/* 
+        LAYER 2: The Void (Revealed Layer)
+        Fixed position, on top, clipped by the "Black Hole" circle
+      */}
+      <div 
+        className="fixed inset-0 z-20 overflow-hidden pointer-events-none"
+        style={{ 
+          clipPath: getClipPath(),
+          // Enable pointer events only when fully expanded so user can interact with buttons
+          pointerEvents: scrollProgress > 0.8 ? 'auto' : 'none' 
+        }}
+      >
+        <VoidLayer />
       </div>
 
-      {/* Transition Effect */}
-      <BlackHoleTransition scrollProgress={scrollProgress} />
-
-      {/* Layer 2: The Void (New World) */}
-      <div className="relative z-30 bg-black min-h-screen">
-         <VoidLayer />
+      {/* 
+        LAYER 3: The Event Horizon (Glowing Rim)
+        Sit on top of the clip boundary to hide the hard edge
+      */}
+      <div 
+        className="fixed inset-0 z-30 pointer-events-none flex items-center justify-center"
+        style={{ opacity: getRimOpacity() }}
+      >
+         {/* 
+            This div scales with the clip path. 
+            We approximate the visual size of the clip-path circle.
+            Since clip-path is %, we need a bit of math or a CSS trick.
+            Actually, using a radial-gradient overlay is easier for the glow.
+         */}
+         <div 
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(circle at center, transparent ${Math.max(0, ((scrollProgress - 0.2) / 0.6) * 150 - 5)}%, rgba(147, 51, 234, 0.5) ${Math.max(0, ((scrollProgress - 0.2) / 0.6) * 150)}%, transparent ${Math.max(0, ((scrollProgress - 0.2) / 0.6) * 150 + 10)}%)`
+            }}
+         />
       </div>
 
-      {/* Metaverse Grid Overlay - Global but fades with layers */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.15] bg-[linear-gradient(rgba(0,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.1)_1px,transparent_1px)] bg-[size:100px_100px] [transform:perspective(500px)_rotateX(60deg)_translateY(200px)_scale(2)] z-0"></div>
+      {/* Grid Overlay - Global */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.1] bg-[linear-gradient(rgba(0,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.1)_1px,transparent_1px)] bg-[size:100px_100px] [transform:perspective(500px)_rotateX(60deg)_translateY(200px)_scale(2)] z-40 mix-blend-overlay"></div>
+      
     </main>
   );
 };
