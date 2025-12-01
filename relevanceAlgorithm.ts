@@ -40,17 +40,20 @@ export const generateRelevantEntity = (
 
   switch (biome) {
     case 'VOID':
-      // Very sparse text to avoid clutter
-      if (r > 0.98) { // Changed from 0.85 to 0.98 - RARE
+      // Balanced text density - readable but present
+      if (r > 0.92) { 
         type = EntityType.WHISPER;
         const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
         content = pool[Math.floor(r * 100) % pool.length];
         scale = 2; 
-      } else if (r > 0.5) {
+      } else if (r > 0.3) {
+        // High density stars/dust to prevent empty screen
         type = EntityType.FLICKER; 
-        scale = 0.5 + r * 2;
+        scale = 0.5 + r * 3; // Varied sizes
       } else {
+        // Background noise
         type = EntityType.FLICKER; 
+        scale = 0.5;
       }
       break;
 
@@ -90,26 +93,27 @@ export const generateRelevantEntity = (
       break;
       
     case 'DATA_STREAM':
-      // Denser Matrix but sparse text
+      // Denser Matrix
       if (r > 0.8) {
         type = EntityType.WIDGET_INPUT; 
-      } else if (r > 0.95) { // Changed from 0.75 - Very RARE text
+      } else if (r > 0.85) { // Moderate text (was 0.95)
         type = EntityType.WHISPER;
         content = "01010101..."; 
-      } else if (r > 0.3) {
-        type = EntityType.FLICKER; // Data bits
+      } else if (r > 0.2) { // High density bits
+        type = EntityType.FLICKER; 
+        scale = 1 + r;
       } else {
         type = EntityType.FLICKER;
       }
       break;
 
     case 'ORGANIC':
-      // Denser Organic
+      // Blobs and Cells
       if (r > 0.8) {
         type = EntityType.BLOB;
         scale = 2 + r * 4;
         hue = (r * 100) % 100; 
-      } else if (r > 0.4) {
+      } else if (r > 0.2) { // High density particles
         type = EntityType.FLICKER;
         scale = r * 3;
       } else {

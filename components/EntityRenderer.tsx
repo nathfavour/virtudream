@@ -77,11 +77,11 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
       return (
         <div style={style} className="pointer-events-none">
            <div 
-             className="bg-white rounded-full shadow-[0_0_20px_white] animate-pulse" 
+             className="bg-white rounded-full shadow-[0_0_10px_white] animate-pulse" 
              style={{ 
-               width: `${4 + Math.random() * 8}px`, 
-               height: `${4 + Math.random() * 8}px`,
-               opacity: 0.5 + Math.random() * 0.5
+               width: `${2 + Math.random() * 6}px`, 
+               height: `${2 + Math.random() * 6}px`,
+               opacity: 0.3 + Math.random() * 0.7
              }}
            />
         </div>
