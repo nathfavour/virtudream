@@ -32,10 +32,15 @@ const DreamLayer: React.FC<DreamLayerProps> = ({ fragments, isLoading }) => {
       {/* 3D Stream */}
       <div className="flex-1 w-full space-y-32 mb-40">
         {fragments.length === 0 && (
-          <div className="text-center text-white/30 mt-20 fade-in spatial-card">
-            <div className="border border-white/10 p-10 rounded-2xl bg-black/20 backdrop-blur-sm">
-              <p className="text-xl font-light font-cyber">SYSTEM ONLINE.</p>
-              <p className="mt-2 text-sm opacity-60">Awaiting neural input...</p>
+          <div className="text-center text-white/30 mt-20 fade-in spatial-card relative z-50">
+            <div className="border border-white/20 p-16 rounded-2xl bg-black/40 backdrop-blur-xl shadow-[0_0_50px_rgba(255,255,255,0.1)] animate-pulse-slow">
+              <p className="text-3xl font-light font-cyber tracking-widest text-cyan-200">SYSTEM ONLINE</p>
+              <p className="mt-6 text-lg text-purple-300/80 font-dream animate-pulse">
+                Awaiting neural input...
+                <span className="block text-xs mt-2 text-white/40 font-mono tracking-normal uppercase opacity-70">
+                  [ Type anywhere to transmit signal ]
+                </span>
+              </p>
             </div>
           </div>
         )}

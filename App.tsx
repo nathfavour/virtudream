@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LivingBackground from './components/LivingBackground';
 import DreamLayer from './components/DreamLayer';
 import VoidLayer from './components/VoidLayer';
-import WhisperInput from './components/WhisperInput';
+import GlobalInputHandler from './components/GlobalInputHandler';
 import { DreamMood, DreamFragment } from './types';
 import { consultTheDream, manifestVision } from './services/geminiService';
 
@@ -137,14 +137,17 @@ const App: React.FC = () => {
         >
           <div className="pointer-events-auto px-6 container mx-auto perspective-container">
             <div className="transform rotate-x-12 origin-bottom transition-transform hover:rotate-x-0 duration-500">
-               <WhisperInput 
+               {/* 
+                 Global Handler is invisible but active. 
+                 We place it here to keep it mounted in the main layer.
+               */}
+               <GlobalInputHandler 
                   onWhisper={handleWhisper} 
                   isLoading={isLoading} 
                   onTypingActivity={handleTypingActivity}
                />
             </div>
           </div>
-
         </div>
       </div>
 
