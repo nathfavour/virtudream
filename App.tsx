@@ -71,12 +71,23 @@ const App: React.FC = () => {
 
   // Calculate dynamic style for chaos
   const getChaosStyle = () => {
-    if (chaosLevel < 5) return {};
+    // Constant low-level vibration when any activity is present (even 1)
+    const active = chaosLevel > 0;
     
-    // Random jitter based on chaos level
-    const x = (Math.random() - 0.5) * (chaosLevel * 0.2);
-    const y = (Math.random() - 0.5) * (chaosLevel * 0.2);
-    const blur = chaosLevel > 50 ? (chaosLevel - 50) * 0.1 : 0;
+    // Base vibration if active
+    let x = active ? (Math.random() - 0.5) * 1 : 0;
+    let y = active ? (Math.random() - 0.5) * 1 : 0;
+    let blur = 0;
+
+    // High intensity modifiers
+    if (chaosLevel > 5) {
+       x = (Math.random() - 0.5) * (chaosLevel * 0.2);
+       y = (Math.random() - 0.5) * (chaosLevel * 0.2);
+    }
+    
+    if (chaosLevel > 50) {
+      blur = (chaosLevel - 50) * 0.1;
+    }
     
     return {
       transform: `translate(${x}px, ${y}px)`,

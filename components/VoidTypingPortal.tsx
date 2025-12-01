@@ -88,30 +88,34 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
 
     const animate = () => {
       ctx.clearRect(0, 0, width, height);
-
+      
+      // Portal Visualization Fix: Ensure it's drawn even if openness is small
+      // or check if it was being hidden by something
+      
       const portal = portalStateRef.current;
       
-      // Smoothly move portal (less jittery now)
+      // Smoothly move portal
       portal.x += (portal.targetX - portal.x) * 0.1;
       portal.y += (portal.targetY - portal.y) * 0.1;
 
       // Slower decay so it stays visible longer
-      portal.openness *= 0.96;
-      if (portal.openness < 0.01) portal.openness = 0;
+      portal.openness *= 0.98; // Very slow decay
+      if (portal.openness < 0.001) portal.openness = 0;
 
-      // Draw Portal (The Void Mouth)
-      if (portal.openness > 0.01) {
+      // Force render if it has openness
+      if (portal.openness > 0.001) {
         // Larger radius for dramatic effect
-        const radius = 120 * portal.openness;
+        const radius = 150 * portal.openness;
         
         // 1. The Void Hole (Vanishing Point)
         ctx.save();
         ctx.translate(portal.x, portal.y);
         
-        // Outer Glow
-        ctx.shadowBlur = 50 * portal.openness;
-        ctx.shadowColor = '#9333ea'; // Purple glow
+        // Outer Glow - DRAW FIRST so it's behind
+        ctx.shadowBlur = 80 * portal.openness;
+        ctx.shadowColor = '#d97706'; // Amber/Gold glow
         
+        // Draw Main Void Circle
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.fillStyle = '#000000';
@@ -120,14 +124,13 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
 
         // 2. The Rotating Sparkly Mosaic Lips (Dr Strange Style)
         const time = Date.now() * 0.002;
-        const segmentCount = 24; // More segments
+        const segmentCount = 24; 
         
         ctx.rotate(time); 
         
         for (let i = 0; i < segmentCount; i++) {
           const angle = (i / segmentCount) * Math.PI * 2;
-          // Spiral offset
-          const spiralOffset = Math.sin(time * 5 + i) * 10;
+          const spiralOffset = Math.sin(time * 5 + i) * 15; // Increased spiral
           const x = Math.cos(angle) * (radius + spiralOffset);
           const y = Math.sin(angle) * (radius + spiralOffset);
           
@@ -135,20 +138,18 @@ const VoidTypingPortal: React.FC<VoidTypingPortalProps> = ({ inputChar, isActive
           ctx.translate(x, y);
           ctx.rotate(angle + time * 3); 
           
-          // Shard Colors (Sparkling Gold/Fire/Magic)
-          const hue = (time * 100 + i * 15) % 60 + 10; // Gold/Orange spectrum
+          // Shard Colors 
+          const hue = (time * 100 + i * 15) % 60 + 10; 
           ctx.fillStyle = `hsla(${hue}, 100%, 60%, ${portal.openness})`;
           
-          // Draw Shard (Runic shape)
           ctx.beginPath();
-          ctx.moveTo(0, -15);
-          ctx.lineTo(8, 0);
-          ctx.lineTo(0, 15);
-          ctx.lineTo(-8, 0);
+          ctx.moveTo(0, -20); // Larger shards
+          ctx.lineTo(10, 0);
+          ctx.lineTo(0, 20);
+          ctx.lineTo(-10, 0);
           ctx.fill();
           
-          // Add Intense Glow
-          ctx.shadowBlur = 20;
+          ctx.shadowBlur = 25;
           ctx.shadowColor = `hsla(${hue}, 100%, 50%, 1)`;
           ctx.stroke();
           
