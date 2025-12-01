@@ -93,14 +93,11 @@ const DreamLayer: React.FC<DreamLayerProps> = ({ fragments, isLoading, onWhisper
         <div ref={scrollRef} />
       </div>
 
-      {/* Input Dock */}
-      <div className="fixed bottom-0 left-0 w-full pb-10 pt-32 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-none z-50">
-        <div className="pointer-events-auto px-6 container mx-auto perspective-container">
-          <div className="transform rotate-x-12 origin-bottom transition-transform hover:rotate-x-0 duration-500">
-             <WhisperInput onWhisper={onWhisper} isLoading={isLoading} />
-          </div>
-        </div>
-      </div>
+      {/* Input Dock (Removed here as it is lifted to App for layout/z-index reasons with chaos effects, or keep if preferred) */}
+      {/* 
+         NOTE: We removed the WhisperInput from here because we moved it to App.tsx 
+         to better control its position relative to the scroll prompt and chaos effects.
+      */}
     </div>
   );
 };

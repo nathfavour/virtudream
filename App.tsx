@@ -10,6 +10,7 @@ const App: React.FC = () => {
   const [fragments, setFragments] = useState<DreamFragment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [chaosLevel, setChaosLevel] = useState(0); // 0 to 100+
 
   // Constants for scroll mapping
   const TOTAL_HEIGHT = '300vh'; // Total scrollable height
@@ -62,6 +63,27 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
+  const handleTypingActivity = (intensity: number) => {
+    // Smooth dampening or direct mapping
+    setChaosLevel(intensity);
+  };
+
+  // Calculate dynamic style for chaos
+  const getChaosStyle = () => {
+    if (chaosLevel < 5) return {};
+    
+    // Random jitter based on chaos level
+    const x = (Math.random() - 0.5) * (chaosLevel * 0.2);
+    const y = (Math.random() - 0.5) * (chaosLevel * 0.2);
+    const blur = chaosLevel > 50 ? (chaosLevel - 50) * 0.1 : 0;
+    
+    return {
+      transform: `translate(${x}px, ${y}px)`,
+      filter: `blur(${blur}px)`,
+      transition: 'transform 0.05s linear, filter 0.1s ease'
+    };
+  };
+
   // Calculate the clip-path radius based on scroll progress
   // We want it to start small and expand to cover the screen
   // Transition happens roughly between 0.3 and 0.8 progress
@@ -100,7 +122,7 @@ const App: React.FC = () => {
         LAYER 1: The Dream Interface (Base Layer) 
         Fixed position, always visible underneath until fully covered
       */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0" style={getChaosStyle()}>
         <LivingBackground mood={currentMood} isDreaming={isLoading} />
         <DreamLayer 
           fragments={fragments} 
@@ -113,7 +135,17 @@ const App: React.FC = () => {
           className="fixed bottom-10 left-0 w-full text-center pointer-events-none transition-opacity duration-500"
           style={{ opacity: 1 - scrollProgress * 3 }}
         >
-          <p className="text-white/30 font-cyber tracking-[0.5em] text-xs animate-bounce">
+          <div className="pointer-events-auto px-6 container mx-auto perspective-container">
+            <div className="transform rotate-x-12 origin-bottom transition-transform hover:rotate-x-0 duration-500">
+               <WhisperInput 
+                  onWhisper={handleWhisper} 
+                  isLoading={isLoading} 
+                  onTypingActivity={handleTypingActivity}
+               />
+            </div>
+          </div>
+
+          <p className="text-white/30 font-cyber tracking-[0.5em] text-xs animate-bounce mt-12">
             SCROLL TO ENTER THE VOID
           </p>
         </div>
