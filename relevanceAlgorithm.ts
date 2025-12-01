@@ -16,7 +16,8 @@ const randomAt = (x: number, y: number, z: number) => {
 };
 
 export const getBiomeAtDepth = (z: number): WorldContext['biome'] => {
-  const cycle = Math.abs(Math.floor(z / 8000));
+  // Reduced biome length from 8000 to 3000 for faster variety
+  const cycle = Math.abs(Math.floor(z / 3000));
   const biomes: WorldContext['biome'][] = ['VOID', 'STAR_FIELD', 'NEBULA', 'DATA_STREAM', 'ORGANIC'];
   return biomes[cycle % biomes.length];
 };
@@ -42,7 +43,7 @@ export const generateRelevantEntity = (
     case 'VOID':
       // ZERO EMPTY SPACE RULE
       // Ensure something is ALWAYS generated
-      if (r > 0.94) { 
+      if (r > 0.85) { // Increased Text Frequency (was 0.94)
         type = EntityType.WHISPER;
         const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
         content = pool[Math.floor(r * 100) % pool.length];
@@ -65,6 +66,11 @@ export const generateRelevantEntity = (
         scale = 6 + r * 5; 
         hue = (r * 360) % 360;
         detailLevel = 2; 
+      } else if (r > 0.90) { // Added Text to Starfield
+        type = EntityType.WHISPER;
+        const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
+        content = pool[Math.floor(r * 100) % pool.length];
+        scale = 2;
       } else if (r > 0.7) {
         type = EntityType.BLOB; 
         hue = (r * 360) % 360;
@@ -83,6 +89,11 @@ export const generateRelevantEntity = (
       } else if (r > 0.88) { 
         type = EntityType.PORTAL;
         scale = 4 + r * 2;
+      } else if (r > 0.82) { // Added Text to Nebula
+        type = EntityType.WHISPER;
+        const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
+        content = pool[Math.floor(r * 100) % pool.length];
+        scale = 2.2;
       } else if (r > 0.5) {
         // Colored Gas Clouds (Blobs)
         type = EntityType.BLOB;
@@ -97,7 +108,7 @@ export const generateRelevantEntity = (
     case 'DATA_STREAM':
       if (r > 0.85) {
         type = EntityType.WIDGET_INPUT; 
-      } else if (r > 0.9) { 
+      } else if (r > 0.75) { // Increased Text (was 0.9)
         type = EntityType.WHISPER;
         content = "01010101..."; 
       } else if (r > 0.4) {
@@ -111,7 +122,12 @@ export const generateRelevantEntity = (
       break;
 
     case 'ORGANIC':
-      if (r > 0.6) { // frequent blobs
+      if (r > 0.9) { // Added Text to Organic
+        type = EntityType.WHISPER;
+        const pool = aiPool.length > 0 ? aiPool : WHISPER_DATA;
+        content = pool[Math.floor(r * 100) % pool.length];
+        scale = 2;
+      } else if (r > 0.6) { // frequent blobs
         type = EntityType.BLOB;
         scale = 2 + r * 6;
         hue = (z * 0.2) % 360; // Rainbow shift

@@ -57,17 +57,15 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
     let width = canvas.width = window.innerWidth;
     let height = canvas.height = window.innerHeight;
     
-    // Initialize 3D particles - INCREASED COUNT & CHANGED BEHAVIOR
-    const particleCount = 800; // More particles
+    // Initialize 3D particles - Restored standard flow
+    const particleCount = 450; 
     if (particlesRef.current.length === 0) {
       for(let i = 0; i < particleCount; i++) {
         particlesRef.current.push({
           x: (Math.random() - 0.5) * 2000, 
           y: (Math.random() - 0.5) * 2000,
           z: Math.random() * 2000,
-          size: Math.random() * 2 + 0.5,
-          angle: Math.random() * Math.PI * 2, // For spiral/whirlwind
-          radius: 200 + Math.random() * 800 // Distance from center for whirlwind
+          size: Math.random() * 2
         });
       }
     }
@@ -199,35 +197,21 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
          ctx.stroke();
       }
 
-      // Sort particles by Z so distant ones draw first (simple depth buffering)
+      // Sort particles by Z so distant ones draw first
       particlesRef.current.sort((a, b) => b.z - a.z);
 
       particlesRef.current.forEach(p => {
-        // WHIRLWIND MOTION
-        // Particles spiral around the center
-        p.angle += 0.005 + (current.speed * 0.0001);
-        p.radius += Math.sin(time + p.z) * 0.5; // Breathe radius
-        
-        // Update X/Y based on spiral
-        // We blend the spiral motion with the original random 3D position
-        const spiralX = Math.cos(p.angle) * p.radius;
-        const spiralY = Math.sin(p.angle) * p.radius;
-        
-        p.x = spiralX;
-        p.y = spiralY;
-
-        // Move particle towards camera
+        // Standard forward motion (Restored)
         p.z -= totalSpeed;
 
         // Reset if passed camera
         if (p.z <= 1) {
           p.z = 2000;
-          p.angle = Math.random() * Math.PI * 2;
-          p.radius = 200 + Math.random() * 800;
+          p.x = (Math.random() - 0.5) * current.spread;
+          p.y = (Math.random() - 0.5) * current.spread;
         }
 
         // 3D Projection Math
-        // fov / (fov + z)
         const fov = 300;
         const scale = fov / (fov + p.z);
         
@@ -237,28 +221,24 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
         const size = Math.max(0.1, p.size * scale * 3);
 
         // Draw Particle
-        const alpha = Math.min(1, (2000 - p.z) / 1000); // Fade in as they get closer
+        const alpha = Math.min(1, (2000 - p.z) / 1000); 
         ctx.fillStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${alpha})`;
         ctx.beginPath();
         ctx.arc(x2d, y2d, size, 0, Math.PI * 2);
         ctx.fill();
         
-        // Trail effect for fast particles (WHIRLWIND STREAKS)
-        if (totalSpeed > 5 || scale > 0.5) {
+        // Simple Trail (Optional, less chaotic)
+        if (totalSpeed > 20) {
            ctx.beginPath();
            ctx.moveTo(x2d, y2d);
-           // Calculate previous position roughly
-           const prevX = (Math.cos(p.angle - 0.05) * p.radius) * scale + vpX;
-           const prevY = (Math.sin(p.angle - 0.05) * p.radius) * scale + vpY;
-           ctx.lineTo(prevX, prevY);
-           ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${alpha * 0.5})`;
-           ctx.lineWidth = size * 0.5;
+           ctx.lineTo(x2d, y2d - size * 2); // Simple streak up/back
+           ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${alpha * 0.3})`;
            ctx.stroke();
         }
 
         // INTERACTIVE: Connect to Mouse (Tactile Net)
-        // If particle is close to the mouse cursor on 2D plane
         const dx = x2d - mousePixelX;
+
         const dy = y2d - mousePixelY;
         const dist = Math.sqrt(dx*dx + dy*dy);
         const connectionThreshold = 150;

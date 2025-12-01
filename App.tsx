@@ -130,8 +130,11 @@ const App: React.FC = () => {
             let maxZ = filtered.length > 0 ? Math.max(...filtered.map(e => e.z)) : currentZ;
             let added = false;
             
+            // Tighter Generation Loop: Smaller steps to prevent "dead spots" or color voids
             while (maxZ < horizon) {
-              maxZ += Math.random() * 400 + 200;
+              // Reduced step size from 200-600 to 100-250
+              maxZ += Math.random() * 150 + 100; 
+              
               // Pass velocity to generation algorithm for context awareness
               filtered.push(generateRelevantEntity(maxZ, velocity));
               added = true;
@@ -139,7 +142,7 @@ const App: React.FC = () => {
             
             let minZ = filtered.length > 0 ? Math.min(...filtered.map(e => e.z)) : currentZ;
             while (minZ > rearHorizon) {
-               minZ -= Math.random() * 400 + 200;
+               minZ -= Math.random() * 150 + 100;
                filtered.push(generateRelevantEntity(minZ, velocity));
                added = true;
             }
