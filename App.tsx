@@ -214,10 +214,30 @@ const World: React.FC = () => {
     targetCameraZRef.current += e.deltaY * scrollSpeed;
   };
 
+  // Touch Handling for Mobile Scroll
+  const touchStartRef = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touchY = e.touches[0].clientY;
+    const deltaY = touchStartRef.current - touchY;
+    touchStartRef.current = touchY;
+
+    // Adjust target camera Z (similar to handleScroll)
+    const scrollSpeed = 2 + (chaosLevel * 0.1);
+    // Amplify touch delta slightly for better mobile feel
+    targetCameraZRef.current += deltaY * scrollSpeed * 2.5; 
+  };
+
   return (
     <main 
-      className="relative w-full h-screen bg-black overflow-hidden cursor-none"
+      className="relative w-full h-screen bg-black overflow-hidden cursor-none touch-none"
       onWheel={handleScroll}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
     >
       <LiquidCursor />
       
