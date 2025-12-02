@@ -139,16 +139,29 @@ export const generateRelevantEntity = (
   }
 
   // "Mistakenly zoom into any of those balls" logic
-  // We place some objects DIRECTLY in the center path (x=50, y=50)
-  // so the user inevitably flies through them.
+  // Update: We now support MULTIPLE POIs/Clusters per scene, not just center
+  // Cycle between 3 lanes: Center, Top-Left, Bottom-Right
+  
+  const laneCycle = Math.floor(z / 1000) % 3;
+  let baseX = 50;
+  let baseY = 50;
+  
+  if (laneCycle === 1) {
+     baseX = 30; baseY = 30; // Top-Left Cluster
+  } else if (laneCycle === 2) {
+     baseX = 70; baseY = 70; // Bottom-Right Cluster
+  }
+  
+  // Drift logic
   let x = (randomAt(z, 1, 1) - 0.5) * 150 + 50;
   let y = (randomAt(1, z, 1) - 0.5) * 150 + 50;
   
-  if (r > 0.92 || type === EntityType.PORTAL) { // Force Portals to be center-ish
-    // Center alignment for potential "world entry"
-    x = 50 + (randomAt(z,z,2) - 0.5) * 5; // Very tight cluster near center
-    y = 50 + (randomAt(z,z,3) - 0.5) * 5;
-    if (type === EntityType.PORTAL) scale = 5; // Ensure portals are massive enough to fly through
+  if (r > 0.92 || type === EntityType.PORTAL || type === EntityType.GALAXY) { 
+    // Force alignment to current active lane/cluster
+    x = baseX + (randomAt(z,z,2) - 0.5) * 10; 
+    y = baseY + (randomAt(z,z,3) - 0.5) * 10;
+    
+    if (type === EntityType.PORTAL) scale = 5; 
     else scale *= 2; 
   }
 

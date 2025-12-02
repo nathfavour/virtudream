@@ -143,24 +143,35 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
       // Dynamic radius based on mood intensity or speed
       const radius = Math.max(width, height) * (0.8 + Math.sin(time * 0.5) * 0.2); // Bigger radius
 
-      // Create a complex gradient - ALWAYS VISIBLE
-      const gradient = ctx.createRadialGradient(gradX, gradY, 0, width/2, height/2, radius);
+      // --- MULTIPLE GRADIENT ORBS (Dynamic Lighting) ---
+      // We render multiple moving gradient spots to create complex lighting
+      // instead of just one center spot.
       
-      // Center color (Mouse): Tinted by current mood, but bright/alive
-      gradient.addColorStop(0, `rgba(${current.r}, ${current.g}, ${current.b}, 0.3)`); // Higher opacity
-      
-      // Mid color: Deep shifting hues - VIBRANT
-      const shiftR = Math.sin(time * 0.5) * 50 + current.r * 0.8;
-      const shiftB = Math.cos(time * 0.5) * 50 + current.b * 0.9;
-      gradient.addColorStop(0.4, `rgba(${shiftR}, ${current.g * 0.6}, ${shiftB}, 0.2)`);
-      
-      // Outer edge: Fades to a deep color, NOT black
-      gradient.addColorStop(0.8, `rgba(${current.r * 0.2}, ${current.g * 0.2}, ${current.b * 0.3}, 0.8)`);
-      gradient.addColorStop(1, `rgb(${current.r * 0.1}, ${current.g * 0.1}, ${current.b * 0.15})`);
+      const orbs = [
+        { x: gradX, y: gradY, r: current.r, g: current.g, b: current.b, radius: radius }, // Mouse Orb
+        { x: width * 0.2 + Math.sin(time * 0.3) * 200, y: height * 0.3 + Math.cos(time * 0.4) * 100, r: current.b, g: current.r, b: current.g, radius: radius * 0.8 }, // Orbiting Orb 1
+        { x: width * 0.8 + Math.cos(time * 0.2) * 200, y: height * 0.7 + Math.sin(time * 0.3) * 100, r: current.g, g: current.b, b: current.r, radius: radius * 0.7 }  // Orbiting Orb 2
+      ];
 
-      // Clear with the breathing gradient instead of solid color
-      ctx.fillStyle = gradient;
+      // Base Background (Dark)
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
+
+      // Render Orbs with Screen Blend
+      ctx.globalCompositeOperation = 'screen';
+      
+      orbs.forEach(orb => {
+         const g = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.radius);
+         g.addColorStop(0, `rgba(${orb.r}, ${orb.g}, ${orb.b}, 0.15)`);
+         g.addColorStop(0.5, `rgba(${orb.r * 0.5}, ${orb.g * 0.5}, ${orb.b * 0.5}, 0.05)`);
+         g.addColorStop(1, 'transparent');
+         ctx.fillStyle = g;
+         ctx.fillRect(0, 0, width, height);
+      });
+
+      ctx.globalCompositeOperation = 'source-over';
+
+      // --- STATIC STARFIELD LAYER ---
 
       // --- STATIC STARFIELD LAYER (The "Twinkles" needed always) ---
       // We draw these directly on the background gradient to ensure NO BLANK SPOTS
@@ -184,7 +195,17 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
       particlesRef.current.sort((a, b) => b.z - a.z);
 
       particlesRef.current.forEach(p => {
-        // Standard forward motion (Restored)
+        // SPIRAL TUNNEL EFFECT (Restored & Controlled)
+        // Particles rotate around the Vanishing Point as they travel
+        // Angle increases as they get closer (acceleration effect)
+        const angleSpeed = 0.002 + (1.0 / (p.z + 100)) * 5; 
+        
+        // We use 'x' and 'y' as the base coordinates, but we rotate them in 2D space around center
+        // To persist the spiral, we need to track 'angle' state per particle if we want smooth trails
+        // For now, let's derive rotation from Z to create a fixed "twisted tunnel" look
+        const twist = p.z * 0.001; 
+        
+        // Move particle towards camera
         p.z -= totalSpeed;
 
         // Reset if passed camera
@@ -198,9 +219,15 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
         const fov = 300;
         const scale = fov / (fov + p.z);
         
+        // Apply Tunnel Rotation
+        // Rotate (p.x, p.y) by (time + twist)
+        const rotAngle = time * 0.2 + twist;
+        const rx = p.x * Math.cos(rotAngle) - p.y * Math.sin(rotAngle);
+        const ry = p.x * Math.sin(rotAngle) + p.y * Math.cos(rotAngle);
+
         // Apply Vanishing Point Shift
-        const x2d = p.x * scale + vpX;
-        const y2d = p.y * scale + vpY;
+        const x2d = rx * scale + vpX;
+        const y2d = ry * scale + vpY;
         const size = Math.max(0.1, p.size * scale * 3);
 
         // Draw Particle
@@ -210,11 +237,20 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
         ctx.arc(x2d, y2d, size, 0, Math.PI * 2);
         ctx.fill();
         
-        // Simple Trail (Optional, less chaotic)
-        if (totalSpeed > 20) {
+        // Trail effect for fast particles (Tunnel Streaks)
+        if (totalSpeed > 10) {
            ctx.beginPath();
            ctx.moveTo(x2d, y2d);
-           ctx.lineTo(x2d, y2d - size * 2); // Simple streak up/back
+           // Calculate previous position (further back in Z, slightly less rotated)
+           const prevZ = p.z + totalSpeed * 2;
+           const prevScale = fov / (fov + prevZ);
+           const prevRot = time * 0.2 + (prevZ * 0.001);
+           const prx = p.x * Math.cos(prevRot) - p.y * Math.sin(prevRot);
+           const pry = p.x * Math.sin(prevRot) + p.y * Math.cos(prevRot);
+           const prevX = prx * prevScale + vpX;
+           const prevY = pry * prevScale + vpY;
+           
+           ctx.lineTo(prevX, prevY);
            ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, ${alpha * 0.3})`;
            ctx.stroke();
         }

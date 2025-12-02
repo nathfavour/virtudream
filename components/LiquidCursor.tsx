@@ -30,17 +30,22 @@ const LiquidCursor: React.FC = () => {
       const portals = gravityRef.current.portals || [];
       
       if (portals.length > 0) {
-         // Pull towards center of screen (where portal is)
-         const cx = window.innerWidth / 2;
-         const cy = window.innerHeight / 2;
-         const dx = cx - positionRef.current.x;
-         const dy = cy - positionRef.current.y;
+         // Find nearest active portal and pull towards its projected center
+         // Since we don't have the full matrix here, we approximate using X/Y percentages from worldTypes
+         // x is 0-100vw, y is 0-100vh approximately in our render logic
+         
+         const nearest = portals[0]; // Just take first for now
+         const px = (nearest.x / 100) * window.innerWidth;
+         const py = (nearest.y / 100) * window.innerHeight;
+         
+         const dx = px - positionRef.current.x;
+         const dy = py - positionRef.current.y;
          const dist = Math.sqrt(dx*dx + dy*dy);
          
          // Strong pull if close
-         if (dist < 400) {
-            tx += dx * 0.1;
-            ty += dy * 0.1;
+         if (dist < 500) {
+            tx += dx * 0.15;
+            ty += dy * 0.15;
          }
       }
 

@@ -102,23 +102,24 @@ const PhysicsBubbles: React.FC = () => {
 
         // GRAVITY WELL (PORTAL ATTRACTION)
         const portals = gravityRef.current.portals || [];
-        // Approximate 2D attraction (pull to center if portals exist)
         if (portals.length > 0) {
-           const cx = width / 2;
-           const cy = height / 2;
+           const nearest = portals[0];
+           const cx = (nearest.x / 100) * width;
+           const cy = (nearest.y / 100) * height;
+           
            const dx = cx - b.x;
            const dy = cy - b.y;
            const dist = Math.sqrt(dx*dx + dy*dy);
            
-           if (dist < 500) {
-              const force = (500 - dist) * 0.002;
+           if (dist < 600) {
+              const force = (600 - dist) * 0.003;
               b.vx += dx * force;
               b.vy += dy * force;
               
-              // SUCKING EFFECT: If too close, consume
+              // SUCKING EFFECT
               if (dist < 100) {
                  b.radius *= 0.9;
-                 if (b.radius < 5) b.isBursting = true; // Poof
+                 if (b.radius < 5) b.isBursting = true; 
               }
            }
         }

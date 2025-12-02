@@ -93,8 +93,9 @@ const World: React.FC = () => {
       // Filter for portals within interaction range
       const activePortals = entities.filter(e => 
          e.type === EntityType.PORTAL &&
-         Math.abs(e.z - cameraZRef.current) < 1500 // Only close portals pull
+         Math.abs(e.z - cameraZRef.current) < 1500 
       );
+      // We pass the 3D entities to context; Consumers must project them
       gravityRef.current.portals = activePortals;
 
       // Check for nearby massive entities to simulate "shockwave"
