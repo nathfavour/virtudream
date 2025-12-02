@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useGravity } from '../contexts/GravityContext';
 
 interface Bubble {
   id: number;
@@ -17,6 +18,7 @@ const PhysicsBubbles: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubblesRef = useRef<Bubble[]>([]);
   const frameRef = useRef<number>(0);
+  const gravityRef = useGravity();
 
   // Spawn bubbles occasionally
   useEffect(() => {
@@ -97,6 +99,29 @@ const PhysicsBubbles: React.FC = () => {
         b.x += b.vx;
         b.y += b.vy;
         b.vy += 0.5; // Gravity
+
+        // GRAVITY WELL (PORTAL ATTRACTION)
+        const portals = gravityRef.current.portals || [];
+        // Approximate 2D attraction (pull to center if portals exist)
+        if (portals.length > 0) {
+           const cx = width / 2;
+           const cy = height / 2;
+           const dx = cx - b.x;
+           const dy = cy - b.y;
+           const dist = Math.sqrt(dx*dx + dy*dy);
+           
+           if (dist < 500) {
+              const force = (500 - dist) * 0.002;
+              b.vx += dx * force;
+              b.vy += dy * force;
+              
+              // SUCKING EFFECT: If too close, consume
+              if (dist < 100) {
+                 b.radius *= 0.9;
+                 if (b.radius < 5) b.isBursting = true; // Poof
+              }
+           }
+        }
 
         // Floor Collision (Bounce)
         if (b.y + b.radius > height) {

@@ -4,12 +4,14 @@ import GlobalInputHandler from './components/GlobalInputHandler';
 import EntityRenderer from './components/EntityRenderer';
 import LiquidCursor from './components/LiquidCursor';
 import PhysicsBubbles from './components/PhysicsBubbles';
-import { DreamMood, DreamFragment } from './types';
+import { GravityProvider, useGravity } from './contexts/GravityContext'; // Import Context
+import { DreamMood } from './types';
 import { WorldEntity, EntityType, WHISPER_DATA } from './worldTypes';
-import { consultTheDream, manifestVision } from './services/geminiService';
+import { consultTheDream } from './services/geminiService';
 import { generateRelevantEntity, getBiomeAtDepth } from './relevanceAlgorithm';
 
-const App: React.FC = () => {
+// Inner App Component to consume Context
+const World: React.FC = () => {
   const [currentMood, setCurrentMood] = useState<DreamMood>(DreamMood.NEUTRAL);
   const [isLoading, setIsLoading] = useState(false);
   const [chaosLevel, setChaosLevel] = useState(0); 
@@ -21,10 +23,22 @@ const App: React.FC = () => {
   const worldContainerRef = useRef<HTMLDivElement>(null);
   
   const [entities, setEntities] = useState<WorldEntity[]>([]);
+  const gravityRef = useGravity(); // Access Gravity State
   
   // Generation boundaries
   const RENDER_DISTANCE = 4000;
   const lastGenZ = useRef(0);
+  
+  const handleEntityConsumed = (id: string) => {
+     // Remove entity and spawn immediate replacement
+     setEntities(prev => {
+        const filtered = prev.filter(e => e.id !== id);
+        // Instant replacement to maintain density
+        const replacementZ = cameraZRef.current + 2000 + Math.random() * 1000;
+        filtered.push(generateRelevantEntity(replacementZ, 0));
+        return filtered;
+     });
+  };
 
   // Initial Generation
   useEffect(() => {
@@ -62,6 +76,7 @@ const App: React.FC = () => {
       const diff = targetCameraZRef.current - cameraZRef.current;
       const velocity = diff * 0.05;
       
+      // Apply momentum
       cameraZRef.current += velocity; 
 
       // MOUSE STEERING
@@ -70,15 +85,19 @@ const App: React.FC = () => {
       const steerY = mouseRef.current.y * -500;
       
       // SHAKE EFFECT
-      // Calculate shake based on speed + proximity of nearby massive objects
       const speed = Math.abs(velocity);
       let shakeX = (Math.random() - 0.5) * speed * 0.5; // Base speed shake
       let shakeY = (Math.random() - 0.5) * speed * 0.5;
 
-      // Check for nearby massive entities to simulate "shockwave" as we pass
-      // Optimization: Only check a random subset or if we know we are deep enough?
-      // Actually, JS is fast enough to iterate 100-200 entities.
-      // We look for entities just about to be passed (Z between current and current + 300)
+      // UPDATE GRAVITY SOURCES (Portals near camera)
+      // Filter for portals within interaction range
+      const activePortals = entities.filter(e => 
+         e.type === EntityType.PORTAL &&
+         Math.abs(e.z - cameraZRef.current) < 1500 // Only close portals pull
+      );
+      gravityRef.current.portals = activePortals;
+
+      // Check for nearby massive entities to simulate "shockwave"
       const nearby = entities.find(e => 
          e.z > cameraZRef.current && 
          e.z < cameraZRef.current + 400 && 
@@ -104,19 +123,7 @@ const App: React.FC = () => {
       const rearHorizon = currentZ - 2000;
 
       // Update global biome state for background
-      // Debounce or only update if changed
-      // getBiomeAtDepth is cheap
-      // We can use a ref to track and set state only on change
       const newBiome = getBiomeAtDepth(currentZ);
-      // We can't access state 'currentBiome' inside this closure safely without deps or ref
-      // Just emit event or use another ref if we want to avoid re-renders loop
-      // But we can trigger a state update if needed.
-      // Let's rely on an effect outside the loop or update a Ref that LivingBackground reads?
-      // LivingBackground takes props. State update is needed.
-      // Only set if different (React handles this check but calling setState in loop is bad)
-      
-      // Let's store biome in a ref for the loop, and sync to state throttled?
-      // Actually, we can just update it in the interval check below
       
       // Only trigger React state update if we crossed a threshold to avoid stutter
       if (Math.abs(currentZ - lastGenZ.current) > 500) {
@@ -160,86 +167,57 @@ const App: React.FC = () => {
     
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [entities]); // Dep on entities to filter portals
 
-  // Event Listener for Wheel (Updates Target, not State)
-  useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      // Zoom Sensitivity
-      const speed = 2.5; 
-      targetCameraZRef.current += e.deltaY * speed;
-    };
-
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    return () => window.removeEventListener('wheel', handleWheel);
-  }, []);
-
-  const handleWhisper = async (text: string) => {
-    setIsLoading(true);
+  const handleWhisper = (text: string) => {
+    // Spawn whisper entity in front of camera
     const newEntity: WorldEntity = {
       id: Date.now().toString(),
       type: EntityType.WHISPER,
-      x: 50,
-      y: 50,
-      z: cameraZRef.current + 800, 
-      scale: 2,
+      x: 50 + (Math.random() - 0.5) * 20,
+      y: 50 + (Math.random() - 0.5) * 20,
+      z: cameraZRef.current + 800,
+      scale: 1,
       content: text
     };
-    
     setEntities(prev => [...prev, newEntity]);
+    setIsLoading(true);
     
-    const response = await consultTheDream(text);
-    setCurrentMood(response.sentiment);
-    
-    setTimeout(() => {
-       setEntities(prev => [...prev, {
-         id: Date.now() + 'echo',
-         type: EntityType.WHISPER,
-         x: 50 + (Math.random()-0.5)*30,
-         y: 50 + (Math.random()-0.5)*30,
-         z: cameraZRef.current + 1500, // Further out
-         scale: 3,
-         content: response.echo
-       }]);
-    }, 1000);
-
-    setIsLoading(false);
+    // AI Interpretation
+    consultTheDream(text).then(response => {
+       setIsLoading(false);
+       setCurrentMood(response.mood);
+       // Spawn response echo
+       setTimeout(() => {
+         setEntities(prev => [...prev, {
+            id: Date.now().toString() + 'echo',
+            type: EntityType.WHISPER,
+            x: 50,
+            y: 50,
+            z: cameraZRef.current + 1200,
+            scale: 2,
+            content: response.interpretation.split('.')[0]
+         }]);
+       }, 2000);
+    });
   };
 
   const handleTypingActivity = (intensity: number) => {
     setChaosLevel(intensity);
   };
 
-  const getChaosStyle = () => {
-    const active = chaosLevel > 0;
-    let x = active ? (Math.random() - 0.5) * 1 : 0;
-    let y = active ? (Math.random() - 0.5) * 1 : 0;
-    let blur = 0;
-    let scale = 1;
-
-    if (chaosLevel > 5) {
-       x = (Math.random() - 0.5) * (chaosLevel * 0.2);
-       y = (Math.random() - 0.5) * (chaosLevel * 0.2);
-    }
-    
-    if (chaosLevel > 10) {
-       scale = 1 + Math.sin(Date.now() * 0.05) * 0.005 * chaosLevel; 
-    }
-    
-    if (chaosLevel > 50) {
-      blur = (chaosLevel - 50) * 0.1;
-    }
-    
-    return {
-      transform: `translate(${x}px, ${y}px) scale(${scale})`,
-      filter: `blur(${blur}px)`,
-      transition: 'transform 0.05s linear, filter 0.1s ease',
-      transformOrigin: 'center center'
-    };
+  // Scroll Handler
+  const handleScroll = (e: React.WheelEvent) => {
+    // Adjust target camera Z
+    const scrollSpeed = 2 + (chaosLevel * 0.1);
+    targetCameraZRef.current += e.deltaY * scrollSpeed;
   };
 
   return (
-    <main className="relative w-full h-screen bg-black overflow-hidden cursor-none">
+    <main 
+      className="relative w-full h-screen bg-black overflow-hidden cursor-none"
+      onWheel={handleScroll}
+    >
       <LiquidCursor />
       
       {/* Background */}
@@ -261,36 +239,31 @@ const App: React.FC = () => {
         className="relative w-full h-full perspective-container"
         style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
       >
-        {/* World Transform Wrapper (Ref-driven for performance) */}
-        <div 
-          ref={worldContainerRef}
-          className="absolute inset-0 w-full h-full will-change-transform"
-          style={{ 
-            transformStyle: 'preserve-3d',
-            ...getChaosStyle() 
-          }}
-        >
-           {entities.map(entity => (
-             <EntityRenderer 
-               key={entity.id} 
-               entity={entity} 
-               cameraZ={0} 
-             />
-           ))}
-        </div>
-      </div>
-
-      {/* Global Input HUD */}
-      <div className="fixed inset-0 z-50 pointer-events-none">
-         <div className="pointer-events-auto w-full h-full">
-             <GlobalInputHandler 
-                onWhisper={handleWhisper} 
-                isLoading={isLoading} 
-                onTypingActivity={handleTypingActivity}
-             />
+         <div ref={worldContainerRef} className="absolute w-full h-full pointer-events-none">
+            {entities.map(entity => (
+              <EntityRenderer 
+                key={entity.id} 
+                entity={entity} 
+                cameraZ={cameraZRef.current} // This causes re-renders every frame? 
+                // Optimization: Actually, passing cameraZ here triggers React reconciler every frame.
+                // But EntityRenderer is memoized.
+                // We should rely on requestAnimationFrame in EntityRenderer for position updates if possible, 
+                // OR accept that React handles 100 elements at 60fps okay-ish.
+                // Better: pass a ref or mutable object? 
+                // For now, let's keep it simple. If laggy, we refactor to direct DOM.
+                onConsumed={() => handleEntityConsumed(entity.id)}
+              />
+            ))}
          </div>
       </div>
 
+      {/* HUD Layers */}
+      <GlobalInputHandler 
+        onWhisper={handleWhisper} 
+        onTypingActivity={handleTypingActivity}
+        isLoading={isLoading}
+      />
+      
       {/* Depth Indicator */}
       <div className="fixed bottom-10 right-10 text-right pointer-events-none z-40 mix-blend-difference">
          <p className="text-white/40 font-cyber text-xs tracking-[0.2em]">
@@ -298,10 +271,15 @@ const App: React.FC = () => {
          </p>
       </div>
 
-      {/* Grid Overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.1] bg-[linear-gradient(rgba(0,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.1)_1px,transparent_1px)] bg-[size:100px_100px] [transform:perspective(500px)_rotateX(60deg)_translateY(200px)_scale(2)] z-40 mix-blend-overlay"></div>
-      
     </main>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <GravityProvider>
+      <World />
+    </GravityProvider>
   );
 };
 
