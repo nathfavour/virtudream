@@ -162,39 +162,22 @@ const LivingBackground: React.FC<LivingBackgroundProps> = ({ mood, isDreaming = 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
-      // --- ADD WAVE OVERLAY ---
-      // Simulating "Background Waves" that are always present
-      const waveCount = 3;
-      for (let w = 0; w < waveCount; w++) {
-         const offset = (time * 0.2 + w) * Math.PI;
-         ctx.beginPath();
-         // Create a wave path
-         ctx.moveTo(0, height);
-         for(let px = 0; px <= width; px += 50) {
-            // Wave function: mixing sine waves for organic feel
-            const py = height/2 + 
-                       Math.sin(px * 0.002 + offset) * 100 + 
-                       Math.sin(px * 0.01 - time) * 50 +
-                       (w * 100); 
-            ctx.lineTo(px, py);
-         }
-         ctx.lineTo(width, height);
-         ctx.lineTo(0, height);
-         ctx.fillStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.05)`; // More visible
-         ctx.fill();
-         
-         // Wave Highlight Line
-         ctx.beginPath();
-         for(let px = 0; px <= width; px += 50) {
-            const py = height/2 + 
-                       Math.sin(px * 0.002 + offset) * 100 + 
-                       Math.sin(px * 0.01 - time) * 50 +
-                       (w * 100); 
-            if (px === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-         }
-         ctx.strokeStyle = `rgba(${current.r}, ${current.g}, ${current.b}, 0.15)`;
-         ctx.stroke();
+      // --- STATIC STARFIELD LAYER (The "Twinkles" needed always) ---
+      // We draw these directly on the background gradient to ensure NO BLANK SPOTS
+      const starSeed = Math.floor(time * 0.5); // Shift stars slowly
+      const starCount = 300;
+      
+      for(let i=0; i<starCount; i++) {
+        // Pseudo-random deterministic stars based on time-block
+        const x = ((Math.sin(i * 12.9898 + starSeed) * 43758.5453) % 1 + 1) / 2 * width;
+        const y = ((Math.cos(i * 78.233 + starSeed) * 43758.5453) % 1 + 1) / 2 * height;
+        const s = ((Math.sin(i * 32.1 + starSeed) * 43758.5453) % 1 + 1) * 2;
+        const a = ((Math.cos(i * 89.2 + time * 3) * 43758.5453) % 1 + 1) / 2; // Twinkle alpha
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${a * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(x, y, s, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       // Sort particles by Z so distant ones draw first
