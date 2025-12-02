@@ -172,10 +172,58 @@ const PhysicsBubbles: React.FC = () => {
     };
   }, []);
 
+  // Click Handler
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      const mx = e.clientX;
+      const my = e.clientY;
+      
+      bubblesRef.current.forEach(b => {
+         if (b.isBursting) return;
+         
+         const dx = mx - b.x;
+         const dy = my - b.y;
+         const dist = Math.sqrt(dx*dx + dy*dy);
+         
+         if (dist < b.radius + 20) { // Hit
+            // Interaction logic
+            b.bounceCount++; // Increment hit count
+            
+            // Impulse away from click
+            const angle = Math.atan2(dy, dx);
+            b.vx -= Math.cos(angle) * 15;
+            b.vy -= Math.sin(angle) * 15;
+            
+            // Squish Effect
+            // We can't easily animate squish state here without more props, 
+            // but the velocity change will cause squish via the draw loop logic
+            
+            // Check for burst
+            if (b.bounceCount > 4 || Math.random() > 0.8) {
+               b.isBursting = true;
+               b.burstParticles = [];
+               for(let j=0; j<30; j++) {
+                 b.burstParticles.push({
+                   x: b.x, 
+                   y: b.y,
+                   vx: (Math.random() - 0.5) * 15,
+                   vy: (Math.random() - 0.5) * 15,
+                   life: 1.0 + Math.random() * 0.5
+                 });
+               }
+            }
+         }
+      });
+    };
+    
+    window.addEventListener('mousedown', handleMouseDown);
+    return () => window.removeEventListener('mousedown', handleMouseDown);
+  }, []);
+
   return (
     <canvas 
       ref={canvasRef} 
-      className="fixed inset-0 pointer-events-none z-20" 
+      className="fixed inset-0 z-20 pointer-events-none" 
     />
   );
 };

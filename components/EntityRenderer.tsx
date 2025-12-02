@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { EntityType, WorldEntity } from '../worldTypes';
 
 interface EntityRendererProps {
@@ -7,6 +7,23 @@ interface EntityRendererProps {
 }
 
 const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
+  const [interactionState, setInteractionState] = useState({ scale: 1, burst: false, brightness: 1 });
+
+  const handleInteraction = () => {
+     // Reactive Logic: Jolt / Burst / Shift
+     setInteractionState(prev => ({
+       ...prev,
+       scale: prev.scale * 1.5,
+       burst: true,
+       brightness: 2
+     }));
+     
+     // Reset after short delay for "jelly" bounce back
+     setTimeout(() => {
+        setInteractionState(prev => ({ ...prev, scale: 1, brightness: 1 }));
+     }, 300);
+  };
+
   // Calculate relative distance for LOD (Level of Detail)
   const dist = entity.z - cameraZ;
   
@@ -18,22 +35,31 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
   if (dist < 100 && dist > -500) {
      opacity = Math.max(0, (dist + 500) / 600); // Fade out as we pass
   }
+  
+  // Apply interaction scale
+  const finalScale = entity.scale * interactionState.scale;
 
   // Clean translation style
   const style: React.CSSProperties = {
-    transform: `translate3d(${entity.x - 50}vw, ${entity.y - 50}vh, ${entity.z}px) scale(${entity.scale})`,
+    transform: `translate3d(${entity.x - 50}vw, ${entity.y - 50}vh, ${entity.z}px) scale(${finalScale})`,
     position: 'absolute',
     left: '50%',
     top: '50%',
     willChange: 'transform', 
     backfaceVisibility: 'hidden',
-    opacity
+    opacity,
+    filter: interactionState.brightness > 1 ? `brightness(${interactionState.brightness})` : undefined,
+    cursor: 'pointer' // Indicate interactivity
   };
 
   switch (entity.type) {
     case EntityType.WHISPER:
       return (
-        <div style={style} className="text-center pointer-events-none select-none">
+        <div 
+          style={style} 
+          className="text-center pointer-events-auto select-none hover:scale-110 transition-transform duration-100"
+          onClick={handleInteraction}
+        >
           <p className="text-4xl md:text-6xl font-dream text-white/90 drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] tracking-widest mix-blend-screen whitespace-nowrap">
             {entity.content}
           </p>
@@ -44,9 +70,13 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
       // LOD: Distant = Blur, Close = Blazing Sun
       if (isClose) {
         return (
-          <div style={style} className="pointer-events-none">
+          <div 
+            style={style} 
+            className="pointer-events-auto"
+            onClick={handleInteraction}
+          >
              {/* BLAZING SUN LOD */}
-             <div className="w-[1200px] h-[1200px] rounded-full relative animate-spin-slow">
+             <div className="w-[1200px] h-[1200px] rounded-full relative animate-spin-slow hover:animate-spin-fast transition-all">
                 {/* Core */}
                 <div className="absolute inset-[10%] bg-white rounded-full shadow-[0_0_100px_white] blur-md"></div>
                 {/* Corona */}
@@ -63,9 +93,9 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
       }
       // Distant Blob
       return (
-        <div style={style} className="pointer-events-none">
+        <div style={style} className="pointer-events-auto" onClick={handleInteraction}>
           <div 
-            className="w-[1000px] h-[1000px] rounded-full blur-3xl opacity-30 animate-spin-slow"
+            className="w-[1000px] h-[1000px] rounded-full blur-3xl opacity-30 animate-spin-slow hover:opacity-80 transition-opacity"
             style={{
               background: `radial-gradient(circle, hsla(${entity.hue}, 80%, 60%, 0.6) 0%, transparent 60%)`
             }}
@@ -75,9 +105,9 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
 
     case EntityType.FLICKER:
       return (
-        <div style={style} className="pointer-events-none">
+        <div style={style} className="pointer-events-auto" onClick={handleInteraction}>
            <div 
-             className="bg-white rounded-full shadow-[0_0_10px_white] animate-pulse" 
+             className="bg-white rounded-full shadow-[0_0_10px_white] animate-pulse hover:scale-150 transition-transform" 
              style={{ 
                width: `${2 + Math.random() * 6}px`, 
                height: `${2 + Math.random() * 6}px`,
@@ -88,17 +118,16 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
       );
 
     case EntityType.PORTAL:
-      // A "Sub-Scene" Portal: A window into another world
-      // It must look like a complete miniature environment
+      // A "Sub-Scene" Portal
       return (
-        <div style={style} className="pointer-events-none group">
+        <div style={style} className="pointer-events-auto group" onClick={handleInteraction}>
            {/* The Container / Window */}
-           <div className="w-[800px] h-[800px] rounded-full border-[20px] border-double border-white/20 shadow-[0_0_200px_rgba(255,255,255,0.4)] overflow-hidden relative animate-spin-very-slow backdrop-blur-sm">
+           <div className="w-[800px] h-[800px] rounded-full border-[20px] border-double border-white/20 shadow-[0_0_200px_rgba(255,255,255,0.4)] overflow-hidden relative animate-spin-very-slow backdrop-blur-sm group-hover:border-white/60 transition-colors">
               
               {/* The "World" Inside - Distinct Background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-black opacity-90"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-black opacity-90 group-hover:opacity-100 transition-opacity"></div>
               
-              {/* Inner Scene Elements (The "Website within a website" feel) */}
+              {/* Inner Scene Elements */}
               <div className="absolute inset-0 animate-pulse-slow">
                  {/* Mini Suns */}
                  <div className="absolute top-[20%] left-[30%] w-32 h-32 bg-yellow-300 rounded-full blur-xl animate-float"></div>
@@ -108,28 +137,25 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({ entity, cameraZ }) => {
                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
                  
                  {/* Swirling Vapors */}
-                 <div className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0deg,cyan_90deg,transparent_180deg)] animate-spin-slow opacity-30 mix-blend-screen"></div>
+                 <div className="absolute inset-[-50%] bg-[conic-gradient(from_0deg,transparent_0deg,cyan_90deg,transparent_180deg)] animate-spin-slow opacity-30 mix-blend-screen group-hover:animate-spin-fast"></div>
               </div>
 
               {/* The Rim/Frame */}
-              <div className="absolute inset-0 rounded-full border-[40px] border-white/5 opacity-50"></div>
+              <div className="absolute inset-0 rounded-full border-[40px] border-white/5 opacity-50 group-hover:opacity-80 transition-opacity"></div>
            </div>
         </div>
       );
 
     case EntityType.BLOB:
-      // Formless Blob Logic:
-      // Using SVG filter for turbulent displacement would be ideal but complex to inject here per element.
-      // Instead, we use multiple layered organic shapes with rapid independent animations to simulate "roiling" formless fluid.
-      
+      // Formless Blob Logic
       const seed = entity.id.charCodeAt(0) % 5;
       
       return (
-        <div style={style} className="pointer-events-none">
-           <div className="relative w-96 h-96 opacity-70 mix-blend-screen">
+        <div style={style} className="pointer-events-auto" onClick={handleInteraction}>
+           <div className={`relative w-96 h-96 opacity-70 mix-blend-screen transition-transform duration-300 ${interactionState.burst ? 'scale-125' : ''}`}>
              {/* Core turbulence */}
              <div 
-               className="absolute inset-0 bg-gradient-to-tr from-cyan-400 to-purple-500 blur-xl animate-blob" 
+               className="absolute inset-0 bg-gradient-to-tr from-cyan-400 to-purple-500 blur-xl animate-blob group-hover:animate-pulse" 
                style={{ 
                   borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%',
                   animationDuration: '3s',
